@@ -258,16 +258,35 @@ async function hashPoornataId(pid) {
     nameIn.oninput = idIn.oninput = validate;
 
     function initUser() {
-        const saved = localStorage.getItem('seamex_user_v38');
-        if(saved) {
-            STATE.user = JSON.parse(saved);
-            document.getElementById('user-name').textContent = STATE.user.name.split(' ')[0];
-            updateGreeting();
-            document.getElementById('welcome-back').style.display = 'block';
-            document.getElementById('login-form').style.display = 'none';
-        }
-        updateLB();
+    const saved = localStorage.getItem('seamex_user_v38');
+    if (saved) {
+        STATE.user = JSON.parse(saved);
+        document.getElementById('user-name').textContent =
+            STATE.user.name.split(' ')[0];
+        updateGreeting();
+        document.getElementById('welcome-back').style.display = 'block';
+        document.getElementById('login-form').style.display = 'none';
+
+        // 🔐 SILENT ENCRYPTION RESYNC (SAFE & CORRECT PLACE)
+        (async () => {
+            try {
+                const pidHash = await hashPoornataId(STATE.user.id);
+                const enc = await encryptText(STATE.user.id);
+
+                await db.collection("players").doc(pidHash).set({
+                    pid_enc: enc.data,
+                    pid_iv: enc.iv,
+                    lastSeen: Date.now()
+                }, { merge: true });
+
+            } catch (e) {
+                console.warn("Silent re-sync failed", e);
+            }
+        })();
     }
+    updateLB();
+}
+
 
     function updateLB() {
         const lb = JSON.parse(localStorage.getItem('seamex_lb_v38') || '[]');
@@ -589,32 +608,15 @@ async function hashPoornataId(pid) {
         if (navigator.share) navigator.share({ text: msg });
         else { navigator.clipboard.writeText(msg); alert("Challenge copied!"); }
     };
-
+);
     initUser();
-    Object.defineProperty(window, "__SD_AUTHOR__", {
-  value: "© Prasidha Jagtap – Seamless Dash",
-  writable: false,
-  configurable: false
-        if (STATE.user) {
-  (async () => {
-    try {
-      const pidHash = await hashPoornataId(STATE.user.id);
-      const enc = await encryptText(STATE.user.id);
-
-      await db.collection("players").doc(pidHash).set({
-        pid_enc: enc.data,
-        pid_iv: enc.iv,
-        lastSeen: Date.now()
-      }, { merge: true });
-
-    } catch(e) {
-      console.warn("Silent re-sync failed", e);
-    }
-  })();
-}
-
+Object.defineProperty(window, "__SD_AUTHOR__", {
+    value: "© Prasidha Jagtap – Seamless Dash",
+    writable: false,
+    configurable: false
 });
 
+   
 </script>
 </body>
 </html>
