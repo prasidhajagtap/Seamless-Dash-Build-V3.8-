@@ -584,7 +584,6 @@ idIn.addEventListener("change", validate);
         if (navigator.share) navigator.share({ text: msg });
         else { navigator.clipboard.writeText(msg); alert("Challenge copied!"); }
     };
-);
   initUser();
 
 Object.defineProperty(window, "__SD_AUTHOR__", {
