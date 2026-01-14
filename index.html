@@ -290,22 +290,32 @@ async function hashPoornataId(pid) {
         if(!STATE.user) {
             STATE.user = { name: nameIn.value.trim(), id: idIn.value.trim() };
             localStorage.setItem('seamex_user_v38', JSON.stringify(STATE.user));
-            // 🔐 FIREBASE: Create / Update Player
+// 🔐 FIREBASE: Create / Update Player (ENCRYPTED PID)
 (async () => {
-  try {
-    const pidHash = await hashPoornataId(STATE.user.id);
-    await db.collection("players").doc(pidHash).set({
-      name: STATE.user.name,
-      pid_hash: pidHash,
-      highScore: Number(STATE.highscore || 0),
-      banned: false,
-      createdAt: Date.now(),
-      lastSeen: Date.now()
-    }, { merge: true });
-  } catch (e) {
-    console.warn("Firebase write failed", e);
-  }
+    try {
+        const pidHash = await hashPoornataId(STATE.user.id);
+
+        // 👉 STEP 2 HAPPENS HERE
+        const enc = await encryptText(STATE.user.id);
+
+        await db.collection("players").doc(pidHash).set({
+            name: STATE.user.name,
+
+            // ✅ ENCRYPTED POORNATA ID
+            pid_enc: enc.data,
+            pid_iv: enc.iv,
+
+            highScore: Number(STATE.highscore || 0),
+            banned: false,
+            createdAt: Date.now(),
+            lastSeen: Date.now()
+        }, { merge: true });
+
+    } catch (e) {
+        console.warn("Firebase write failed", e);
+    }
 })();
+
 
         }
         STATE.highscore = localStorage.getItem('seamex_hs_' + STATE.user.id) || 0;
