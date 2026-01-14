@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Seamless Dash – Seamex</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  font-family: Arial, sans-serif;
+}
+canvas { display: block; }
+
+#ui-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+.ui-panel { pointer-events: auto; }
+
+#menu, #gameover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#e3f2fd, #0984e3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+input, button {
+  padding: 10px;
+  margin: 6px;
+  border-radius: 6px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  background: #A01018;
+  color: #fff;
+}
+
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: #fff;
+  display: none;
+  gap: 10px;
+  font-weight: bold;
+}
+
+#toast {
+  position: absolute;
+  top: 40%;
+  width: 100%;
+  text-align: center;
+  font-size: 24px;
+  opacity: 0;
+  color: #fff;
+}
+</style>
+
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui-layer">
+  <div id="menu" class="ui-panel">
+    <h2>Seamless Dash</h2>
+    <input id="name" placeholder="Your Name">
+    <input id="pid" placeholder="Poornata ID">
+    <button id="start">Start Dash</button>
+  </div>
+
+  <div id="hud">
+    <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
+  </div>
+
+  <div id="toast">HOLD TO FLY</div>
+
+  <div id="gameover" class="ui-panel" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="final"></p>
+    <button onclick="location.reload()">Restart</button>
+  </div>
+</div>
+
+<script>
+/* =====================================================
+   FIREBASE INIT (REPLACE CONFIG VALUES ONLY)
+===================================================== */
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
+  authDomain: "seamless-dash.firebaseapp.com",
+  projectId: "seamless-dash",
+  storageBucket: "seamless-dash.firebasestorage.app",
+  messagingSenderId: "463956345017",
+  appId: "1:463956345017:web:ea6a02cee0ec820ed41b68"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* =====================================================
+   SECURITY – HASH POORNATA ID
+===================================================== */
+async function hashPoornataId(pid) {
+  const SALT = "SEAMLESS_DASH_V38";
+  const data = new TextEncoder().encode(pid + SALT);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/* =====================================================
+   CORE GAME STATE
+===================================================== */
+const STATE = { phase: "MENU", score: 0, level: 1, shake: 0 };
+const profileKey = "seamex_user_v38";
+
+/* =====================================================
+   CANVAS
+===================================================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d", { alpha:false });
+
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* =====================================================
+   PLAYER
+===================================================== */
+const player = { x: 150, y: 300, vy: 0, bob: 0, trail: [] };
+let enemies = [];
+let holding = false;
+let lastSpawn = 0;
+
+/* =====================================================
+   INPUT
+===================================================== */
+addEventListener("pointerdown", () => {
+  if (STATE.phase === "READY") startGame();
+  holding = true;
+});
+addEventListener("pointerup", () => {
+  if (STATE.phase === "PLAYING") gameOver();
+  holding = false;
+});
+
+/* =====================================================
+   START BUTTON
+===================================================== */
+start.onclick = async () => {
+  const nameVal = name.value.trim();
+  const pidVal = pid.value.trim();
+
+  if (!/^[A-Za-z\s]{3,}$/.test(nameVal)) return alert("Invalid name");
+  if (!/^[0-9]{4,10}$/.test(pidVal)) return alert("Invalid ID");
+
+  localStorage.setItem(profileKey, JSON.stringify({ name: nameVal, pid: pidVal }));
+
+  const pidHash = await hashPoornataId(pidVal);
+
+  await db.collection("players").doc(pidHash).set({
+    name: nameVal,
+    pid_hash: pidHash,
+    highScore: 0,
+    banned: false,
+    createdAt: Date.now(),
+    lastSeen: Date.now()
+  }, { merge: true });
+
+  STATE.phase = "READY";
+  menu.style.display = "none";
+  toast.style.opacity = 1;
+};
+
+/* =====================================================
+   GAME FLOW
+===================================================== */
+function startGame() {
+  STATE.phase = "PLAYING";
+  toast.style.opacity = 0;
+  hud.style.display = "flex";
+}
+
+function gameOver() {
+  STATE.phase = "GAMEOVER";
+  player.trail.length = 0;
+  player.bob = 0;
+
+  const profile = JSON.parse(localStorage.getItem(profileKey));
+  if (profile) {
+    hashPoornataId(profile.pid).then(pidHash => {
+      db.collection("players").doc(pidHash).set({
+        highScore: STATE.score,
+        lastSeen: Date.now()
+      }, { merge: true });
+    });
+  }
+
+  final.innerText = "Score: " + STATE.score;
+  gameover.style.display = "flex";
+}
+
+/* =====================================================
+   UPDATE & DRAW
+===================================================== */
+function update(t) {
+  STATE.shake *= 0.85;
+  if (STATE.phase !== "PLAYING") return;
+
+  if (holding) player.vy -= 0.6;
+  player.vy += 0.4;
+  player.y += player.vy;
+  player.bob += 0.05;
+
+  player.trail.push({x:player.x,y:player.y});
+  if (player.trail.length > 8) player.trail.shift();
+
+  if (t - lastSpawn > 800) {
+    enemies.push({ x: canvas.width+40, y: Math.random()*canvas.height, vx: 4 });
+    lastSpawn = t;
+  }
+
+  enemies.forEach(e => {
+    e.x -= e.vx;
+    if (Math.hypot(player.x-e.x, player.y-e.y) < 40) gameOver();
+  });
+
+  STATE.score++;
+  STATE.level = Math.floor(STATE.score / 100) + 1;
+}
+
+function draw() {
+  ctx.fillStyle = "#0984e3";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  player.trail.forEach((p,i)=>{
+    ctx.globalAlpha = i/player.trail.length;
+    ctx.fillRect(p.x,p.y,20,20);
+  });
+  ctx.globalAlpha = 1;
+  ctx.fillRect(player.x,player.y,30,30);
+
+  enemies.forEach(e=>{
+    ctx.fillStyle = "#A01018";
+    ctx.fillRect(e.x,e.y,30,30);
+  });
+
+  score.innerText = "Score: " + STATE.score;
+  level.innerText = "Level: " + STATE.level;
+}
+
+function loop(t) {
+  update(t);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* =====================================================
+   STEALTH COPYRIGHT SIGNATURE
+===================================================== */
+Object.defineProperty(window, "__SD_AUTHOR__", {
+  value: "© Prasidha Jagtap – Seamless Dash",
+  writable: false
+});
+</script>
+</body>
+</html>
