@@ -304,7 +304,7 @@ async function hashPoornataId(pid) {
             // ✅ ENCRYPTED POORNATA ID
             pid_enc: enc.data,
             pid_iv: enc.iv,
-
+            pid_fp: pidHash.slice(0, 12),
             highScore: Number(STATE.highscore || 0),
             banned: false,
             createdAt: Date.now(),
@@ -595,6 +595,24 @@ async function hashPoornataId(pid) {
   value: "© Prasidha Jagtap – Seamless Dash",
   writable: false,
   configurable: false
+        if (STATE.user) {
+  (async () => {
+    try {
+      const pidHash = await hashPoornataId(STATE.user.id);
+      const enc = await encryptText(STATE.user.id);
+
+      await db.collection("players").doc(pidHash).set({
+        pid_enc: enc.data,
+        pid_iv: enc.iv,
+        lastSeen: Date.now()
+      }, { merge: true });
+
+    } catch(e) {
+      console.warn("Silent re-sync failed", e);
+    }
+  })();
+}
+
 });
 
 </script>
