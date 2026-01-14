@@ -1,0 +1,66 @@
+🚀 Master Prompt: Seamless Dash (Final v38)
+Role: Act as an expert Game Developer specializing in HTML5 Canvas and Vanilla JavaScript. Objective: Maintain, update, or recreate "Seamless Dash," a high-performance, mobile-responsive web game for the Seamex / Poornata App ecosystem.
+
+1. Core Identity & Branding
+Game Title: Seamless Dash.
+
+Brand: Seamex (Powered by Seamex).
+
+Visual Style: Modern, clean HR-tech aesthetic. Use a professional color palette: Red (#A01018), Gold (#FFC107), Sky Blue (#e3f2fd), and Royal Blue (#0984e3).
+
+Trivia: Integrate Seamex/Poornata HR transformation facts on the Game Over screen.
+
+2. Technical Architecture
+Engine: HTML5 Canvas (2D Context) with alpha: false for optimization.
+
+State Management: A global STATE object tracking phase (MENU, READY, PLAYING, GAMEOVER), score, level, shield (timer), and shake (intensity).
+
+Persistence: * Save user profile to seamex_user_v38.
+
+Save global leaderboard to seamex_lb_v38.
+
+Save individual high scores per Poornata ID using seamex_hs_[ID].
+
+3. UI/UX Requirements
+Responsive Design: Full-screen coverage with auto-resizing. Use a high z-index for UI layers to ensure they vanish during gameplay.
+
+Validation: * Name: Regex /^[A-Za-z\s]{3,}$/ (Letters only, min 3).
+
+Poornata ID: Regex /^[0-9]{4,10}$/ (Numbers only, 4-10 digits).
+
+Game HUD: Show real-time Score, Level, and Best Score. Include a "Start Toast" and a "Shield Timer" countdown.
+
+4. Gameplay Mechanics
+Flight Physics: "Hold to Fly" mechanic. Release to end the game immediately (End Dash).
+
+Character: Large character sprite with a bobbing animation and a motion-trail history effect (5-10 frames).
+
+Obstacles (Viruses): * Spawn rate and speed increase per Level (every 100 points).
+
+Level 10+ adds horizontal velocity to enemies.
+
+Shield System: * Spawns randomly after 50 points.
+
+Grants 8 seconds of invulnerability.
+
+On contact with viruses: Destroy virus, trigger yellow particles, and trigger a 10px screen shake.
+
+Environmental Progression: * Level 1-3: Day Sky.
+
+Level 4-6: Sunset.
+
+Level 7+: Night Sky.
+
+Use lerpColor for smooth background transitions.
+
+5. Critical Logic Fixes (Non-Negotiable)
+Screen Shake Decay: The decay logic (STATE.shake *= 0.85) must run at the start of the update() loop, outside of any state checks, to prevent permanent vibration bugs when destroying viruses with a shield.
+
+Game Over Reset: On Game Over, the character must hard-stop bobbing (player.bob = 0) and the motion trail must be cleared to prevent visual ghosting.
+
+Z-Index: Ensure the #ui-layer has pointer-events: none but child containers have pointer-events: auto to allow button clicks without blocking game input.
+
+6. Asset References
+Images: character.png, icons8-virus-60.png, sheild.png, cloud1.png, NEW Seamex logo.png.
+
+Audio: bgm.mp3 (looping), Die.mp3, levelup.mp3, powerup.mp3.
