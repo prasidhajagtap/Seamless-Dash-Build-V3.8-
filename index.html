@@ -257,6 +257,12 @@ async function hashPoornataId(pid) {
     }
     nameIn.oninput = idIn.oninput = validate;
 
+    // ✅ Mobile & WebView fallback (CRITICAL)
+nameIn.addEventListener("keyup", validate);
+idIn.addEventListener("keyup", validate);
+nameIn.addEventListener("change", validate);
+idIn.addEventListener("change", validate);
+
     function initUser() {
     const saved = localStorage.getItem('seamex_user_v38');
     if (saved) {
