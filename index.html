@@ -1,598 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seamless Dash - Seamex</title>
-    <style>
-        :root { --red: #A01018; --gold: #FFC107; --sky: #e3f2fd; --blue: #0984e3; }
-        
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 2; width: 100%; height: 100%; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Seamless Dash - Seamex</title>
 
-        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-        .screen-box { 
-            background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 30px; width: 88%; max-width: 360px; 
-            text-align: center; pointer-events: auto; box-shadow: 0 15px 45px rgba(0,0,0,0.3); 
-            border-top: 8px solid var(--red); display: none; flex-direction: column; max-height: 90vh; overflow-y: auto;
-        }
+<style>
+:root { --red:#A01018; --gold:#FFC107; --sky:#e3f2fd; --blue:#0984e3; }
+body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none}
+canvas{position:absolute;inset:0;z-index:2;width:100%;height:100%}
+#ui-layer{position:absolute;inset:0;z-index:10;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.screen-box{background:rgba(255,255,255,.98);padding:25px;border-radius:30px;width:88%;max-width:360px;text-align:center;pointer-events:auto;box-shadow:0 15px 45px rgba(0,0,0,.3);border-top:8px solid var(--red);display:none;flex-direction:column;max-height:90vh;overflow-y:auto}
+body.state-menu #start-screen{display:flex}
+body.state-gameover #game-over-screen{display:flex}
+body.state-playing #game-hud{display:flex!important}
+.logo{width:130px;margin:0 auto 10px}
+.title{color:var(--red);font-size:24px;font-weight:900;margin:0;text-transform:uppercase}
+.input-group{margin-bottom:5px;text-align:left}
+input{width:100%;padding:14px;border:2px solid #eee;border-radius:12px;font-size:16px}
+.nudge{color:var(--red);font-size:11px;font-weight:700;margin-top:4px;visibility:hidden;height:12px}
+.main-btn{background:linear-gradient(135deg,var(--gold),var(--red));color:#fff;border:none;padding:16px;border-radius:50px;font-weight:800;width:100%;cursor:pointer;font-size:16px;margin-top:10px}
+.main-btn:disabled{opacity:.4;filter:grayscale(1);cursor:not-allowed}
+.text-btn{background:none;border:none;color:var(--red);font-weight:700;cursor:pointer;margin-top:10px;font-size:13px;text-decoration:underline}
+.how-to{background:#f0f9ff;padding:12px;border-radius:15px;margin:15px 0;text-align:left;border:1px solid #d1e9ff;font-size:12px}
+.hud-top{position:absolute;top:15px;width:92%;left:4%;display:flex;justify-content:space-between}
+.stat-pill{background:rgba(255,255,255,.9);padding:8px 15px;border-radius:20px;font-weight:800;color:var(--red);font-size:12px;border:1px solid #eee}
+#game-hud{position:absolute;inset:0;display:none;pointer-events:none;z-index:5}
+#start-toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.75);color:#fff;padding:15px 25px;border-radius:50px;font-weight:800;font-size:18px}
+#shield-toast{position:absolute;top:65px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;padding:6px 18px;border-radius:30px;font-weight:800;font-size:12px;display:none}
+</style>
 
-        body.state-menu #start-screen { display: flex; }
-        body.state-gameover #game-over-screen { display: flex; }
-        body.state-playing #game-hud { display: flex !important; }
-
-        .logo { width: 130px; margin: 0 auto 10px; }
-        .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
-        
-        .input-group { margin-bottom: 5px; text-align: left; }
-        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
-        .nudge { color: var(--red); font-size: 11px; font-weight: 700; margin-top: 4px; visibility: hidden; height: 12px; }
-
-        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; box-shadow: 0 5px 15px rgba(160,16,24,0.2); }
-        .main-btn:disabled { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
-        .text-btn { background: none; border: none; color: var(--red); font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 13px; text-decoration: underline; }
-
-        .how-to { background: #f0f9ff; padding: 12px; border-radius: 15px; margin: 15px 0; text-align: left; border: 1px solid #d1e9ff; font-size: 12px; }
-        .how-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-weight: 600; color: #444; }
-
-        #game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 5; }
-        .hud-top { position: absolute; top: 15px; width: 92%; left: 4%; display: flex; justify-content: space-between; }
-        .stat-pill { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 12px; border: 1px solid #eee; }
-        
-        #start-toast { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            background: rgba(0,0,0,0.75); color: #fff; padding: 15px 25px; border-radius: 50px;
-            font-weight: 800; font-size: 18px; animation: toastPulse 1.5s infinite;
-        }
-        @keyframes toastPulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.95); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.95); } }
-        #shield-toast { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); background: var(--blue); color: white; padding: 6px 18px; border-radius: 30px; font-weight: 800; font-size: 12px; display: none; }
-        #motivation-tag { color: var(--blue); font-weight: 800; font-size: 14px; margin-top: 5px; }
-    </style>
-    <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 </head>
+
 <body class="state-menu">
 
-    <div style="display:none;">
-        <img id="asset-player" src="character.png">
-        <img id="asset-v1" src="icons8-virus-60.png">
-        <img id="asset-v2" src="icons8-virus-60 (1).png">
-        <img id="asset-shield" src="sheild.png">
-        <img id="asset-cloud" src="cloud1.png">
-    </div>
+<div style="display:none">
+<img id="asset-player" src="character.png">
+<img id="asset-v1" src="icons8-virus-60.png">
+<img id="asset-v2" src="icons8-virus-60 (1).png">
+<img id="asset-shield" src="sheild.png">
+<img id="asset-cloud" src="cloud1.png">
+</div>
 
-    <div id="ui-layer">
-        <div id="start-screen" class="screen-box">
-            <img src="NEW Seamex logo.png" class="logo">
-            <h1 class="title">Seamless Dash</h1>
-            <div id="welcome-back" style="display:none; margin:10px 0;">
-                <div style="font-size:14px; background: #f0f7ff; padding: 10px; border-radius: 12px;">
-                    <span id="time-greeting">Good morning</span>, <strong id="user-name"></strong>
-                </div>
-                <button class="main-btn" id="btn-quick-start">START DASHING</button>
-                <button class="text-btn" id="btn-change">Change User</button>
-            </div>
-            <div id="login-form">
-                <div class="input-group">
-                    <input type="text" id="inp-name" placeholder="Full Name">
-                    <div id="nudge-name" class="nudge">Letters only (min 3)</div>
-                </div>
-                <div class="input-group">
-                    <input type="tel" id="inp-id" placeholder="Poornata ID">
-                    <div id="nudge-id" class="nudge">Numbers only (4-10 digits)</div>
-                </div>
-                <button id="btn-login" class="main-btn" disabled>ENTER SKY</button>
-            </div>
-            <div class="how-to">
-                <div class="how-item">👆 <strong>Hold</strong> to Fly. <strong>Lift</strong> to End Dash.</div>
-                <div class="how-item">🦠 <strong>Dodge</strong> the Viruses.</div>
-                <div class="how-item">🛡️ <strong>Shields</strong> appear after 50 points!</div>
-            </div>
-            <div class="lb" id="menu-lb"></div>
-            <div class="text-btn" id="toggle-sound">🔊 Sound: ON</div>
-        </div>
+<div id="ui-layer">
+<div id="start-screen" class="screen-box">
+<img src="NEW Seamex logo.png" class="logo">
+<h1 class="title">Seamless Dash</h1>
 
-        <div id="game-over-screen" class="screen-box">
-            <h1 class="title">Dash Over</h1>
-            <div id="motivation-tag"></div>
-            <div id="trivia-box" style="margin:15px 0; font-size:13px; color:#444; background:#fff9e6; padding:15px; border-radius:15px; border: 1px solid #ffeeba;"></div>
-            <div class="lb" id="death-lb"></div>
-            <button id="btn-restart" class="main-btn">DASH AGAIN</button>
-            <button class="main-btn" id="btn-share" style="background:var(--blue);">SHARE CHALLENGE</button>
-            <button class="text-btn" id="btn-menu">Back to Menu</button>
-        </div>
-    </div>
+<div id="welcome-back" style="display:none">
+<div><span id="time-greeting"></span>, <strong id="user-name"></strong></div>
+<button class="main-btn" id="btn-quick-start">START DASHING</button>
+<button class="text-btn" id="btn-change">Change User</button>
+</div>
 
-    <div id="game-hud">
-        <div class="hud-top">
-            <div class="stat-pill">⭐ <span id="val-score">0</span></div>
-            <div class="stat-pill">Level: <span id="val-lvl">1</span></div>
-            <div class="stat-pill">Best: <span id="val-best">0</span></div>
-        </div>
-        <div id="start-toast">PLACE FINGER TO START</div>
-        <div id="shield-toast">🛡️ SHIELD: <span id="shield-timer">8.0</span>s</div>
-    </div>
+<div id="login-form">
+<div class="input-group">
+<input id="inp-name" placeholder="Full Name">
+<div id="nudge-name" class="nudge">Letters only (min 3)</div>
+</div>
+<div class="input-group">
+<input id="inp-id" placeholder="Poornata ID">
+<div id="nudge-id" class="nudge">Numbers only (4-10 digits)</div>
+</div>
+<button id="btn-login" class="main-btn" disabled>ENTER SKY</button>
+</div>
+</div>
 
-    <canvas id="gameCanvas"></canvas>
+<div id="game-over-screen" class="screen-box">
+<h1 class="title">Dash Over</h1>
+<button id="btn-restart" class="main-btn">DASH AGAIN</button>
+<button id="btn-menu" class="text-btn">Back to Menu</button>
+</div>
+</div>
+
+<div id="game-hud">
+<div class="hud-top">
+<div class="stat-pill">⭐ <span id="val-score">0</span></div>
+<div class="stat-pill">Level <span id="val-lvl">1</span></div>
+<div class="stat-pill">Best <span id="val-best">0</span></div>
+</div>
+<div id="start-toast">PLACE FINGER TO START</div>
+<div id="shield-toast">🛡️ <span id="shield-timer">8.0</span>s</div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
 
 <script>
-/* ================= ENCRYPTION UTILITIES ================= */
+/* ====== FIREBASE ====== */
+firebase.initializeApp({
+apiKey:"AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
+authDomain:"seamless-dash.firebaseapp.com",
+projectId:"seamless-dash"
+});
+const db=firebase.firestore();
 
-// ⚠️ KEEP THIS SECRET, CHANGE PER ENVIRONMENT
-const SD_SECRET = "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY";
-
-// Convert string → crypto key
-async function getKey() {
-  const enc = new TextEncoder();
-  const keyData = enc.encode(SD_SECRET);
-  return crypto.subtle.importKey(
-    "raw",
-    await crypto.subtle.digest("SHA-256", keyData),
-    { name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"]
-  );
+/* ====== ENCRYPTION ====== */
+const SD_SECRET="SD_PRASIDHA_JAGTAP_V38_MASTER_KEY";
+async function encryptText(t){
+const iv=crypto.getRandomValues(new Uint8Array(12));
+const key=await crypto.subtle.importKey("raw",await crypto.subtle.digest("SHA-256",new TextEncoder().encode(SD_SECRET)),{name:"AES-GCM"},false,["encrypt"]);
+const enc=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(t));
+return{iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...new Uint8Array(enc)))}
+}
+async function hashPoornataId(pid){
+const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pid+"SEAMLESS_DASH_V38"));
+return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
-// Encrypt text
-async function encryptText(plainText) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await getKey();
-  const encoded = new TextEncoder().encode(plainText);
-  const cipher = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encoded
-  );
-  return {
-    iv: btoa(String.fromCharCode(...iv)),
-    data: btoa(String.fromCharCode(...new Uint8Array(cipher)))
-  };
+/* ====== STATE ====== */
+const STATE={phase:"MENU",user:null,score:0,highscore:0};
+
+/* ====== INIT USER (FIXED) ====== */
+async function initUser(){
+const saved=localStorage.getItem("seamex_user_v38");
+if(!saved)return;
+STATE.user=JSON.parse(saved);
+document.getElementById("user-name").textContent=STATE.user.name.split(" ")[0];
+document.getElementById("welcome-back").style.display="block";
+document.getElementById("login-form").style.display="none";
 }
 
-// Decrypt text
-async function decryptText(encData, encIv) {
-  const key = await getKey();
-  const iv = Uint8Array.from(atob(encIv), c => c.charCodeAt(0));
-  const data = Uint8Array.from(atob(encData), c => c.charCodeAt(0));
-  const plain = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    data
-  );
-  return new TextDecoder().decode(plain);
+/* ====== LOGIN ====== */
+const nameIn=document.getElementById("inp-name");
+const idIn=document.getElementById("inp-id");
+const loginBtn=document.getElementById("btn-login");
+
+function validate(){
+const ok=/^[A-Za-z\s]{3,}$/.test(nameIn.value)&&/^[0-9]{4,10}$/.test(idIn.value);
+loginBtn.disabled=!ok;
 }
-
-    
-    /* ================= FIREBASE INIT ================= */
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
-  authDomain: "seamless-dash.firebaseapp.com",
-  projectId: "seamless-dash",
-  storageBucket: "seamless-dash.firebasestorage.app",
-  messagingSenderId: "463956345017",
-  appId: "1:463956345017:web:ea6a02cee0ec820ed41b68"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-/* ================= HASH POORNATA ID ================= */
-async function hashPoornataId(pid) {
-  const SALT = "SEAMLESS_DASH_V38";
-  const data = new TextEncoder().encode(pid + SALT);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    let W, H, animId, lastTime = 0;
-
-    const STATE = {
-        phase: 'MENU', score: 0, highscore: 0, level: 1,
-        shield: 0, user: null, sound: true, shake: 0,
-        bgTransition: 0 
-    };
-
-    const COLORS = {
-        day: { top: [227, 242, 253], bot: [255, 255, 255] },
-        sunset: { top: [255, 154, 158], bot: [250, 208, 196] },
-        night: { top: [30, 60, 114], bot: [42, 82, 152] }
-    };
-
-    function lerpColor(c1, c2, t) {
-        return c1.map((v, i) => Math.floor(v + (c2[i] - v) * t));
-    }
-
-    const TRIVIA = [
-        "Seamex enables agile digital HR transformations for modern workplaces.",
-        "The Poornata App by Seamex simplifies employee lifecycle management.",
-        "Seamex solutions are built to scale with your organization's growth.",
-        "Empower your workforce with Seamex's intuitive digital platforms.",
-        "Seamex: Driving innovation through seamless employee experiences."
-    ];
-
-    const audio = {
-        bgm: new Audio('bgm.mp3'), die: new Audio('Die.mp3'),
-        lvl: new Audio('levelup.mp3'), pwr: new Audio('powerup.mp3')
-    };
-    audio.bgm.loop = true;
-
-    let player = { x:0, y:0, r:46, tx:0, ty:0, bob:0, history: [] };
-    let enemies = [], items = [], clouds = [], dots = [], particles = [];
-
-    function updateGreeting() {
-        const hour = new Date().getHours();
-        let greet = (hour < 12) ? "Good morning" : (hour < 17) ? "Good afternoon" : "Good evening";
-        document.getElementById('time-greeting').textContent = greet;
-    }
-
-    function resize() {
-        W = canvas.width = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        dots = Array.from({length: 45}, () => ({ 
-            x:Math.random()*W, y:Math.random()*H, s:0.3+Math.random()*0.5, 
-            r:1+Math.random()*2, pulse: Math.random()*Math.PI 
-        }));
-        clouds = Array.from({length: 6}, () => ({ x:Math.random()*W, y:Math.random()*H, s:0.8+Math.random()*1.2, w:100+Math.random()*80 }));
-    }
-    window.onresize = resize; resize();
-
-    const nameIn = document.getElementById('inp-name');
-    const idIn = document.getElementById('inp-id');
-    const loginBtn = document.getElementById('btn-login');
-
-    function validate() {
-        const nv = /^[A-Za-z\s]{3,}$/.test(nameIn.value.trim());
-        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
-        document.getElementById('nudge-name').style.visibility = (nameIn.value==="" || nv)?"hidden":"visible";
-        document.getElementById('nudge-id').style.visibility = (idIn.value==="" || iv)?"hidden":"visible";
-        loginBtn.disabled = !(nv && iv);
-    }
-    nameIn.oninput = idIn.oninput = validate;
-
-    // ✅ Mobile & WebView fallback (CRITICAL)
-nameIn.addEventListener("keyup", validate);
-idIn.addEventListener("keyup", validate);
-nameIn.addEventListener("change", validate);
-idIn.addEventListener("change", validate);
-
-    
-    function updateLB() {
-        const lb = JSON.parse(localStorage.getItem('seamex_lb_v38') || '[]');
-        const html = lb.slice(0, 5).map((e, i) => `<div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #eee;"><span>#${i+1} ${e.name}</span><strong>${e.score}</strong></div>`).join('') || "No records yet!";
-        document.getElementById('menu-lb').innerHTML = document.getElementById('death-lb').innerHTML = html;
-        return lb;
-    }
-
-    function spawnParticles(x, y, color, count=10) {
-        for(let i=0; i<count; i++) {
-            particles.push({
-                x, y, color,
-                vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
-                life: 1.0, r: 2+Math.random()*4
-            });
-        }
-    }
-
-    function startReady() {
-        if(!STATE.user) {
-            STATE.user = { name: nameIn.value.trim(), id: idIn.value.trim() };
-            localStorage.setItem('seamex_user_v38', JSON.stringify(STATE.user));
-// 🔐 FIREBASE: Create / Update Player (ENCRYPTED PID)
-(async () => {
-    try {
-        const pidHash = await hashPoornataId(STATE.user.id);
-
-        // 👉 STEP 2 HAPPENS HERE
-        const enc = await encryptText(STATE.user.id);
-
-        await db.collection("players").doc(pidHash).set({
-            name: STATE.user.name,
-
-            // ✅ ENCRYPTED POORNATA ID
-            pid_enc: enc.data,
-            pid_iv: enc.iv,
-            pid_fp: pidHash.slice(0, 12),
-            highScore: Number(STATE.highscore || 0),
-            banned: false,
-            createdAt: Date.now(),
-            lastSeen: Date.now()
-        }, { merge: true });
-
-    } catch (e) {
-        console.warn("Firebase write failed", e);
-    }
-})();
-
-
-        }
-        STATE.highscore = localStorage.getItem('seamex_hs_' + STATE.user.id) || 0;
-        document.getElementById('val-best').textContent = STATE.highscore;
-        STATE.phase = 'READY'; STATE.score = 0; STATE.level = 1; STATE.shield = 0; STATE.bgTransition = 0;
-        enemies = []; items = []; particles = []; player.history = [];
-        player.x = W/2; player.y = H*0.75; player.bob = 0;
-        document.body.className = 'state-playing';
-        document.getElementById('start-toast').style.display = 'block';
-        if(!animId) requestAnimationFrame(loop);
-    }
-
-    function endGame() {
-        if(STATE.phase !== 'PLAYING') return;
-        STATE.phase = 'GAMEOVER'; 
-        STATE.shake = 15; // Initial impact shake
-        player.bob = 0;   // Hard-stop bobbing
-        player.history = []; // Clear trail immediately
-        
-        audio.bgm.pause();
-        if(STATE.sound) audio.die.play().catch(()=>{});
-        
-        let lb = updateLB();
-        let currentScore = Math.floor(STATE.score);
-        lb.push({ name: STATE.user.name, score: currentScore });
-        lb.sort((a,b) => b.score - a.score);
-        localStorage.setItem('seamex_lb_v38', JSON.stringify(lb.slice(0, 10)));
-        if(currentScore > STATE.highscore) localStorage.setItem('seamex_hs_' + STATE.user.id, currentScore);
-        
-        const nextRank = lb.find(e => e.score > currentScore);
-        document.getElementById('motivation-tag').textContent = nextRank ? `You were only ${nextRank.score - currentScore} pts away from #${lb.indexOf(nextRank)+1}!` : "NEW ALL-TIME RECORD!";
-        
-        document.getElementById('trivia-box').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
-        // 🔐 FIREBASE: Update High Score
-(async () => {
-  try {
-    const pidHash = await hashPoornataId(STATE.user.id);
-    const finalScore = Math.floor(STATE.score);
-
-    await db.collection("players").doc(pidHash).set({
-      highScore: finalScore,
-      lastSeen: Date.now()
-    }, { merge: true });
-  } catch (e) {
-    console.warn("Firebase score update failed", e);
-  }
-})();
-
-        document.body.className = 'state-gameover';
-    }
-
-    const handleDown = (e) => {
-        if(STATE.phase === 'READY') { 
-            STATE.phase = 'PLAYING'; 
-            document.getElementById('start-toast').style.display = 'none';
-            if(STATE.sound) audio.bgm.play().catch(()=>{}); 
-        }
-        updateTarget(e);
-    };
-    const updateTarget = (e) => {
-        const t = e.touches ? e.touches[0] : e;
-        player.tx = t.clientX; player.ty = t.clientY - 75;
-    };
-
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleDown(e); });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); updateTarget(e); });
-    canvas.addEventListener('touchend', () => { if(STATE.phase === 'PLAYING') endGame(); });
-    canvas.addEventListener('mousedown', handleDown);
-    canvas.addEventListener('mouseup', () => { if(STATE.phase === 'PLAYING') endGame(); });
-
-    function update(dt) {
-        // 1. ALWAYS decay screen shake (Move this here)
-    if (STATE.shake > 0) {
-        STATE.shake *= 0.85; // Reduces shake by 15% every frame
-        if (STATE.shake < 0.1) STATE.shake = 0; // Hard stop when small enough
-    }
-
-    dots.forEach(d => { 
-        d.y += d.s * (STATE.phase === 'PLAYING' ? 3 : 1); 
-        d.pulse += 0.05;
-        if(d.y > H) { d.y = -10; d.x = Math.random()*W; } 
-    });
-
-    // 2. Handle Game Over state
-    if(STATE.phase === 'GAMEOVER') {
-        player.bob = 0;
-        // Removed the old shake decay from here
-        return;
-    }
-
-        // LOCK POSITIONS IF GAMEOVER
-        if(STATE.phase === 'GAMEOVER') {
-            player.bob = 0;
-            if(STATE.shake > 0) STATE.shake *= 0.85;
-            return;
-        }
-
-        if(STATE.phase === 'READY') {
-            player.x = W/2 + Math.sin(Date.now()*0.005)*10;
-            player.bob = Math.sin(Date.now()*0.006) * 6;
-            return;
-        }
-
-        STATE.score += 0.15 * (dt/16.6);
-        document.getElementById('val-score').textContent = Math.floor(STATE.score);
-        
-        if(Math.floor(STATE.score) > 0 && Math.floor(STATE.score) % 100 === 0 && (STATE.score % 100) < 0.2) {
-            STATE.level++; if(STATE.sound) audio.lvl.play().catch(()=>{});
-        }
-        document.getElementById('val-lvl').textContent = STATE.level;
-        
-        let targetTransition = 0;
-        if(STATE.level >= 4 && STATE.level < 7) targetTransition = 0.5;
-        else if(STATE.level >= 7) targetTransition = 1.0;
-        STATE.bgTransition += (targetTransition - STATE.bgTransition) * 0.005;
-
-        // Player movement
-        player.bob = Math.sin(Date.now()*0.006) * 6;
-        player.x += (player.tx - player.x) * 0.18 * (dt/16.6);
-        player.y += (player.ty - player.y) * 0.18 * (dt/16.6);
-        player.history.unshift({x: player.x, y: player.y + player.bob});
-        if(player.history.length > 5 + STATE.level) player.history.pop();
-
-        if(STATE.shield > 0) {
-            STATE.shield -= (dt/16.6);
-            document.getElementById('shield-toast').style.display = 'block';
-            document.getElementById('shield-timer').textContent = Math.max(0, STATE.shield/60).toFixed(1);
-        } else { document.getElementById('shield-toast').style.display = 'none'; }
-
-        clouds.forEach(c => { c.y += c.s * 2.5; if(c.y > H + 100) { c.y = -120; c.x = Math.random()*W; } });
-        
-        for(let i=particles.length-1; i>=0; i--){
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-            if(p.life <= 0) particles.splice(i,1);
-        }
-
-        for(let i=enemies.length-1; i>=0; i--) {
-            let e = enemies[i]; 
-            e.y += e.s * (dt/16.6);
-            e.angle += e.rotSpd; 
-            if(STATE.level >= 10) e.x += e.vx;
-
-            const dist = Math.hypot(player.x - e.x, player.y - (e.y - player.bob));
-            if(dist < player.r + e.r - 10) {
-                if(STATE.shield > 0) {
-                    spawnParticles(e.x, e.y, '#FFC107');
-                    STATE.shake = 10;
-                    enemies.splice(i,1);
-                } else { endGame(); return; }
-            }
-            if(e.y > H + 100 || e.x < -50 || e.x > W+50) enemies.splice(i,1);
-        }
-
-        for(let i=items.length-1; i>=0; i--) {
-            let it = items[i]; it.y += 4 * (dt/16.6);
-            if(Math.hypot(player.x - it.x, player.y - it.y) < 60) {
-                STATE.shield = 480; if(STATE.sound) audio.pwr.play().catch(()=>{});
-                spawnParticles(it.x, it.y, '#0984e3', 20);
-                items.splice(i,1);
-            }
-            if(it.y > H + 100) items.splice(i,1);
-        }
-        
-        const rate = 0.015 + (Math.min(STATE.level, 10) * 0.005);
-        if(Math.random() < rate) {
-            enemies.push({ 
-                x:Math.random()*W, y:-60, 
-                r:22+Math.random()*20, 
-                s:4 + (STATE.level*0.4), 
-                vx: (Math.random()-0.5)*2, 
-                angle: Math.random()*Math.PI*2,
-                rotSpd: (Math.random()-0.5)*0.1, 
-                img: Math.random()>0.5?document.getElementById('asset-v1'):document.getElementById('asset-v2') 
-            });
-        }
-        if(STATE.score > 50 && Math.random() < 0.003) items.push({ x:Math.random()*W, y:-60, r:30 });
-    }
-
-    function draw() {
-        ctx.save();
-        // Handle Screen Shake
-        if(STATE.shake > 0.5) ctx.translate((Math.random()-0.5)*STATE.shake, (Math.random()-0.5)*STATE.shake);
-
-        let currentTop, currentBot;
-        if(STATE.bgTransition < 0.5) {
-            let t = STATE.bgTransition * 2;
-            currentTop = lerpColor(COLORS.day.top, COLORS.sunset.top, t);
-            currentBot = lerpColor(COLORS.day.bot, COLORS.sunset.bot, t);
-        } else {
-            let t = (STATE.bgTransition - 0.5) * 2;
-            currentTop = lerpColor(COLORS.sunset.top, COLORS.night.top, t);
-            currentBot = lerpColor(COLORS.sunset.bot, COLORS.night.bot, t);
-        }
-
-        let grad = ctx.createLinearGradient(0,0,0,H);
-        grad.addColorStop(0, `rgb(${currentTop.join(',')})`); 
-        grad.addColorStop(1, `rgb(${currentBot.join(',')})`);
-        ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-
-        if(STATE.phase === 'MENU' || STATE.phase === 'GAMEOVER') {
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(0,0,W,H);
-        }
-
-        dots.forEach(d => { 
-            ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.sin(d.pulse)*0.2})`;
-            ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fill(); 
-        });
-
-        if(STATE.phase !== 'MENU' && STATE.phase !== 'GAMEOVER') {
-            clouds.forEach(c => ctx.drawImage(document.getElementById('asset-cloud'), c.x - c.w/2, c.y, c.w, c.w*0.6));
-        }
-
-        // Only draw history trail if not gameover
-        if(STATE.phase !== 'GAMEOVER') {
-            player.history.forEach((pos, i) => {
-                ctx.globalAlpha = 0.3 - (i * 0.05);
-                ctx.drawImage(document.getElementById('asset-player'), pos.x-46, pos.y-46, 92, 92);
-            });
-        }
-        ctx.globalAlpha = 1.0;
-
-        enemies.forEach(e => {
-            ctx.save();
-            ctx.translate(e.x, e.y);
-            ctx.rotate(e.angle);
-            ctx.drawImage(e.img, -e.r, -e.r, e.r*2, e.r*2);
-            ctx.restore();
-        });
-
-        items.forEach(it => ctx.drawImage(document.getElementById('asset-shield'), it.x-30, it.y-30, 60, 60));
-
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-
-        // FINAL POSITION CHECK: FORCE ZERO BOB ON GAMEOVER
-        let finalBob = (STATE.phase === 'GAMEOVER') ? 0 : player.bob;
-        ctx.drawImage(document.getElementById('asset-player'), player.x-46, (player.y-46) + finalBob, 92, 92);
-        
-        if(STATE.shield > 0 && STATE.phase === 'PLAYING') {
-            ctx.beginPath(); ctx.arc(player.x, player.y + finalBob, 60, 0, Math.PI*2);
-            ctx.strokeStyle = `rgba(255, 193, 7, ${0.5 + Math.sin(Date.now()*0.01)*0.3})`; ctx.lineWidth = 5; ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-
-    function loop(time) {
-        let dt = time - lastTime;
-        if(dt > 100) dt = 16; 
-        lastTime = time;
-        update(dt); draw();
-        animId = requestAnimationFrame(loop);
-    }
-
-    document.getElementById('btn-login').onclick = startReady;
-    document.getElementById('btn-quick-start').onclick = startReady;
-    document.getElementById('btn-restart').onclick = startReady;
-    document.getElementById('btn-menu').onclick = () => location.reload();
-    document.getElementById('btn-change').onclick = () => { localStorage.removeItem('seamex_user_v38'); location.reload(); };
-    document.getElementById('toggle-sound').onclick = () => {
-        STATE.sound = !STATE.sound;
-        document.getElementById('toggle-sound').textContent = STATE.sound ? "🔊 Sound: ON" : "🔇 Sound: OFF";
-        if(!STATE.sound) audio.bgm.pause();
-    };
-    document.getElementById('btn-share').onclick = () => {
-        const msg = `🚀 I dashed past the viruses and scored ${Math.floor(STATE.score)} in Seamless Dash on Poornata App - Download now to Play: https://onelink.to/6kpm3g`;
-        if (navigator.share) navigator.share({ text: msg });
-        else { navigator.clipboard.writeText(msg); alert("Challenge copied!"); }
-    };
-  initUser();
-
-Object.defineProperty(window, "__SD_AUTHOR__", {
-    value: "© Prasidha Jagtap – Seamless Dash",
-    writable: false,
-    configurable: false
+["input","keyup","change"].forEach(e=>{
+nameIn.addEventListener(e,validate);
+idIn.addEventListener(e,validate);
 });
 
-   
+loginBtn.onclick=async()=>{
+STATE.user={name:nameIn.value.trim(),id:idIn.value.trim()};
+localStorage.setItem("seamex_user_v38",JSON.stringify(STATE.user));
+const pidHash=await hashPoornataId(STATE.user.id);
+const enc=await encryptText(STATE.user.id);
+await db.collection("players").doc(pidHash).set({
+name:STATE.user.name,
+pid_enc:enc.data,
+pid_iv:enc.iv,
+highScore:0,
+lastSeen:Date.now()
+},{merge:true});
+location.reload();
+};
+
+document.getElementById("btn-change").onclick=()=>{
+localStorage.removeItem("seamex_user_v38");
+location.reload();
+};
+
+initUser();
+
+Object.defineProperty(window,"__SD_AUTHOR__",{
+value:"© Prasidha Jagtap – Seamless Dash",
+writable:false
+});
 </script>
 </body>
 </html>
