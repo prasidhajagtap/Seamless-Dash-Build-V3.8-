@@ -29,13 +29,16 @@
         .logo { width: 130px; margin: 0 auto 10px; }
         .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
         
-        /* Loading Spinner */
+        /* Loading Spinner & Errors */
         #sp-loader { margin: 15px 0; color: var(--blue); font-weight: 600; font-size: 14px; display: none; }
+        #sp-error-msg { display: none; color: var(--red); font-weight: 800; font-size: 14px; margin-bottom: 15px; background: #ffe6e6; padding: 10px; border-radius: 8px; border: 1px solid #ffcccc; }
+        
         .spinner { width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid var(--blue); border-radius: 50%; animation: spin 1s linear infinite; display:inline-block; vertical-align:middle; margin-right:5px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .input-group { margin-bottom: 5px; text-align: left; }
         input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
+        input:focus { border-color: var(--blue); outline: none; }
         .nudge { color: var(--red); font-size: 11px; font-weight: 700; margin-top: 4px; visibility: hidden; height: 12px; }
 
         .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; box-shadow: 0 5px 15px rgba(160,16,24,0.2); }
@@ -91,12 +94,14 @@
             </div>
 
             <div id="login-form">
+                <div id="sp-error-msg">OOPS, Not able to find you !</div>
+                
                 <div class="input-group">
-                    <input type="text" id="inp-name" placeholder="Full Name">
+                    <input type="text" id="inp-name" placeholder="Full Name" autocomplete="off">
                     <div id="nudge-name" class="nudge">Letters only (min 3)</div>
                 </div>
                 <div class="input-group">
-                    <input type="tel" id="inp-id" placeholder="Poornata ID">
+                    <input type="tel" id="inp-id" placeholder="Poornata ID" autocomplete="off" maxlength="10">
                     <div id="nudge-id" class="nudge">Numbers only (4-10 digits)</div>
                 </div>
                 <button id="btn-login" class="main-btn" disabled>ENTER SKY</button>
@@ -137,7 +142,7 @@
 
 <script>
     // ================= CONFIGURATION =================
-    // ⚠️ REPLACE THIS WITH YOUR AES KEY
+    // ⚠️ PASTE YOUR SAVED AES KEY HERE
     const ENCRYPTION_KEY = "YOUR_AES_KEY_HERE"; 
 
     const firebaseConfig = {
@@ -161,23 +166,28 @@
 
     // ================= CRYPTOGRAPHY =================
     async function encryptPID(pid) {
-        if(ENCRYPTION_KEY === "YOUR_AES_KEY_HERE") {
-            console.warn("AES Key not set in index.html");
+        if(ENCRYPTION_KEY === "YOUR_AES_KEY_HERE" || !ENCRYPTION_KEY) {
+            // Safe fallback if key missing during dev
             return { enc: btoa(pid), iv: "" }; 
         }
         
-        const enc = new TextEncoder();
-        const keyData = enc.encode(ENCRYPTION_KEY);
-        const hash = await crypto.subtle.digest("SHA-256", keyData);
-        const key = await crypto.subtle.importKey("raw", hash, { name:"AES-GCM" }, false, ["encrypt"]);
-        
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(pid));
-        
-        return {
-            enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-            iv: btoa(String.fromCharCode(...iv))
-        };
+        try {
+            const enc = new TextEncoder();
+            const keyData = enc.encode(ENCRYPTION_KEY);
+            const hash = await crypto.subtle.digest("SHA-256", keyData);
+            const key = await crypto.subtle.importKey("raw", hash, { name:"AES-GCM" }, false, ["encrypt"]);
+            
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(pid));
+            
+            return {
+                enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+                iv: btoa(String.fromCharCode(...iv))
+            };
+        } catch (e) {
+            console.error("Encrypt Error", e);
+            return { enc: btoa(pid), iv: "" }; 
+        }
     }
 
     // ================= FIREBASE LOGIC =================
@@ -212,9 +222,9 @@
             document.getElementById('val-best').textContent = STATE.highscore;
             return true;
         } catch (e) {
-            console.error("Sync Error - Check Firebase Rules:", e);
+            console.error("Sync Error:", e);
             STATE.highscore = localStorage.getItem('seamex_hs_' + pid) || 0;
-            return true; // Fallback to play offline
+            return true; 
         }
     }
 
@@ -229,7 +239,7 @@
                     highScore: currentScore,
                     lastSeen: Date.now()
                 });
-            } catch(e) { console.log("Score upload failed", e); }
+            } catch(e) {}
         }
     }
 
@@ -253,22 +263,49 @@
               document.getElementById('death-lb').innerHTML = html;
           })
           .catch(e => {
-              console.error("Leaderboard Error:", e);
-              document.getElementById('menu-lb').innerHTML = "<div style='text-align:center; color:red'>Enable 'read' in Firebase Rules</div>";
+              document.getElementById('menu-lb').innerHTML = "<div style='text-align:center;'>Leaderboard Offline</div>";
           });
     }
+
+    // ================= MANUAL VALIDATION LOGIC =================
+    const nameIn = document.getElementById('inp-name');
+    const idIn = document.getElementById('inp-id');
+    const loginBtn = document.getElementById('btn-login');
+
+    function validate() {
+        // Allowed: Letters, Spaces, Dots (for names like T.J. Miller)
+        const nv = /^[A-Za-z\s\.]{3,}$/.test(nameIn.value.trim());
+        // Allowed: 4 to 10 digits
+        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
+
+        // Toggle Nudge Visibility
+        // Show nudge if field is NOT empty AND regex fails
+        document.getElementById('nudge-name').style.visibility = (nameIn.value.length > 0 && !nv) ? "visible" : "hidden";
+        document.getElementById('nudge-id').style.visibility = (idIn.value.length > 0 && !iv) ? "visible" : "hidden";
+        
+        // Enable Button Only if both Valid
+        loginBtn.disabled = !(nv && iv);
+    }
+
+    // Attach listeners for robust feedback
+    nameIn.addEventListener('input', validate);
+    idIn.addEventListener('input', validate);
+    // Run once on load to reset state
+    validate();
 
     // ================= SHAREPOINT AUTH =================
     function initSharePointAuth() {
         const loader = document.getElementById('sp-loader');
         const loginForm = document.getElementById('login-form');
         const welcomeScreen = document.getElementById('welcome-back');
+        const oopsMsg = document.getElementById('sp-error-msg');
 
         loader.style.display = 'block';
         loginForm.style.display = 'none';
+        welcomeScreen.style.display = 'none';
+        oopsMsg.style.display = 'none';
 
         setTimeout(() => {
-            // ROBUST SEARCH: Look for IDs ending in 'hdnName' and 'hdnPoornataId'
             const spNameEl = document.querySelector('input[id$="hdnName"]');
             const spIdEl = document.querySelector('input[id$="hdnPoornataId"]');
             
@@ -276,7 +313,7 @@
             const spId = spIdEl ? spIdEl.value : null;
 
             if (spName && spId) {
-                // FOUND!
+                // SUCCESS: Found SharePoint Data
                 STATE.user = { name: spName, id: spId };
                 document.getElementById('user-name').textContent = spName;
                 document.getElementById('user-display-id').textContent = spId;
@@ -288,12 +325,17 @@
                         welcomeScreen.style.display = 'block';
                         fetchLeaderboard();
                     } else {
+                        // Banned user -> show error on login form
+                        oopsMsg.textContent = "Account Suspended";
+                        oopsMsg.style.display = 'block';
                         loginForm.style.display = 'block';
                     }
                 });
             } else {
-                // NOT FOUND - Check Manual Storage
+                // FAIL: No SharePoint Data -> Show Manual Login + OOPS Message
                 loader.style.display = 'none';
+                
+                // Check if we have a saved local user to suggest
                 const saved = localStorage.getItem('seamex_user_v38');
                 if(saved) {
                     STATE.user = JSON.parse(saved);
@@ -304,11 +346,13 @@
                     syncUserWithFirestore(STATE.user.name, STATE.user.id);
                     fetchLeaderboard();
                 } else {
+                    // Clean start -> Show "OOPS" and Form
+                    oopsMsg.style.display = 'block';
                     loginForm.style.display = 'block';
                     fetchLeaderboard();
                 }
             }
-        }, 1000); // 1s wait for SP to load
+        }, 1000); 
     }
 
     // ================= GAME LOGIC =================
