@@ -10,61 +10,42 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <style>
-        :root { --red: #A01018; --gold: #FFC107; --sky: #e3f2fd; --blue: #0984e3; }
-        
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 2; width: 100%; height: 100%; }
+        /* CSS INLINED FOR MAX COMPATIBILITY */
+        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: 100%; }
 
         #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; }
         .screen-box { 
             background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 30px; width: 88%; max-width: 360px; 
             text-align: center; pointer-events: auto; box-shadow: 0 15px 45px rgba(0,0,0,0.3); 
-            border-top: 8px solid var(--red); display: none; flex-direction: column; max-height: 90vh; overflow-y: auto;
+            border-top: 8px solid var(--red); display: none; flex-direction: column;
         }
 
         body.state-menu #start-screen { display: flex; }
         body.state-gameover #game-over-screen { display: flex; }
-        body.state-playing #game-hud { display: flex !important; }
-
+        
         .logo { width: 130px; margin: 0 auto 10px; }
         .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
         
-        /* Loading Spinner & Errors */
-        #sp-loader { margin: 15px 0; color: var(--blue); font-weight: 600; font-size: 14px; display: none; }
-        #sp-error-msg { display: none; color: var(--red); font-weight: 800; font-size: 14px; margin-bottom: 15px; background: #ffe6e6; padding: 10px; border-radius: 8px; border: 1px solid #ffcccc; }
-        
-        .spinner { width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid var(--blue); border-radius: 50%; animation: spin 1s linear infinite; display:inline-block; vertical-align:middle; margin-right:5px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #sp-loader { margin: 15px 0; color: var(--blue); font-weight: 600; font-size: 14px; }
+        #sp-error-msg { display: none; color: var(--red); font-weight: 800; font-size: 14px; margin-bottom: 15px; background: #ffe6e6; padding: 10px; border-radius: 8px; }
 
         .input-group { margin-bottom: 5px; text-align: left; }
-        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
-        input:focus { border-color: var(--blue); outline: none; }
+        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
         .nudge { color: var(--red); font-size: 11px; font-weight: 700; margin-top: 4px; visibility: hidden; height: 12px; }
 
-        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; box-shadow: 0 5px 15px rgba(160,16,24,0.2); }
-        .main-btn:disabled { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
+        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .main-btn:disabled { opacity: 0.4; filter: grayscale(1); }
         .text-btn { background: none; border: none; color: var(--red); font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 13px; text-decoration: underline; }
-
-        .how-to { background: #f0f9ff; padding: 12px; border-radius: 15px; margin: 15px 0; text-align: left; border: 1px solid #d1e9ff; font-size: 12px; }
-        .how-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-weight: 600; color: #444; }
 
         #game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 5; }
         .hud-top { position: absolute; top: 15px; width: 92%; left: 4%; display: flex; justify-content: space-between; }
         .stat-pill { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 12px; border: 1px solid #eee; }
-        
-        #start-toast { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            background: rgba(0,0,0,0.75); color: #fff; padding: 15px 25px; border-radius: 50px;
-            font-weight: 800; font-size: 18px; animation: toastPulse 1.5s infinite;
-        }
-        @keyframes toastPulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.95); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.95); } }
-        #shield-toast { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); background: var(--blue); color: white; padding: 6px 18px; border-radius: 30px; font-weight: 800; font-size: 12px; display: none; }
-        #motivation-tag { color: var(--blue); font-weight: 800; font-size: 14px; margin-top: 5px; }
-        
-        .lb { background: #f8f9fa; border-radius: 15px; padding: 12px; margin: 10px 0; font-size: 13px; border: 1px solid #eee; min-height: 100px; }
+        body.state-playing #game-hud { display: flex !important; }
+
+        .lb { background: #f8f9fa; border-radius: 15px; padding: 12px; margin: 10px 0; font-size: 13px; min-height: 80px; }
         .lb-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
-        .lb-row:last-child { border: none; }
-        .lb-loader { color: #888; font-style: italic; }
     </style>
 </head>
 <body class="state-menu">
@@ -81,49 +62,35 @@
         <div id="start-screen" class="screen-box">
             <img src="NEW Seamex logo.png" class="logo">
             <h1 class="title">Seamless Dash</h1>
-            
-            <div id="sp-loader"><div class="spinner"></div> Syncing Poornata...</div>
+            <div id="sp-loader">Syncing Poornata...</div>
 
             <div id="welcome-back" style="display:none; margin:10px 0;">
                 <div style="font-size:14px; background: #f0f7ff; padding: 10px; border-radius: 12px;">
-                    <span id="time-greeting">Good morning</span>, <strong id="user-name"></strong>
-                    <div style="font-size:11px; color:#666; margin-top:4px;">ID: <span id="user-display-id"></span></div>
+                    Hi, <strong id="user-name"></strong>! (ID: <span id="user-display-id"></span>)
                 </div>
                 <button class="main-btn" id="btn-quick-start">START DASHING</button>
-                <button class="text-btn" id="btn-change">Not you? Change User</button>
+                <button class="text-btn" id="btn-change">Change User</button>
             </div>
 
             <div id="login-form">
                 <div id="sp-error-msg">OOPS, Not able to find you !</div>
-                
                 <div class="input-group">
-                    <input type="text" id="inp-name" placeholder="Full Name" autocomplete="off">
+                    <input type="text" id="inp-name" placeholder="Full Name">
                     <div id="nudge-name" class="nudge">Letters only (min 3)</div>
                 </div>
                 <div class="input-group">
-                    <input type="tel" id="inp-id" placeholder="Poornata ID" autocomplete="off" maxlength="10">
+                    <input type="tel" id="inp-id" placeholder="Poornata ID">
                     <div id="nudge-id" class="nudge">Numbers only (4-10 digits)</div>
                 </div>
                 <button id="btn-login" class="main-btn" disabled>ENTER SKY</button>
             </div>
-
-            <div class="how-to">
-                <div class="how-item">👆 <strong>Hold</strong> to Fly. <strong>Lift</strong> to End Dash.</div>
-                <div class="how-item">🦠 <strong>Dodge</strong> the Viruses.</div>
-                <div class="how-item">🛡️ <strong>Shields</strong> appear after 50 points!</div>
-            </div>
-
-            <div class="lb" id="menu-lb"><div class="lb-loader">Connecting to Leaderboard...</div></div>
-            <div class="text-btn" id="toggle-sound">🔊 Sound: ON</div>
+            <div class="lb" id="menu-lb">Loading Leaderboard...</div>
         </div>
 
         <div id="game-over-screen" class="screen-box">
             <h1 class="title">Dash Over</h1>
-            <div id="motivation-tag"></div>
-            <div id="trivia-box" style="margin:15px 0; font-size:13px; color:#444; background:#fff9e6; padding:15px; border-radius:15px; border: 1px solid #ffeeba;"></div>
-            <div class="lb" id="death-lb"><div class="lb-loader">Updating Scores...</div></div>
+            <div id="death-lb" class="lb"></div>
             <button id="btn-restart" class="main-btn">DASH AGAIN</button>
-            <button class="main-btn" id="btn-share" style="background:var(--blue);">SHARE CHALLENGE</button>
             <button class="text-btn" id="btn-menu">Back to Menu</button>
         </div>
     </div>
@@ -131,539 +98,119 @@
     <div id="game-hud">
         <div class="hud-top">
             <div class="stat-pill">⭐ <span id="val-score">0</span></div>
-            <div class="stat-pill">LVL <span id="val-lvl">1</span></div>
-            <div class="stat-pill">Best: <span id="val-best">0</span></div>
+            <div class="stat-pill">BEST: <span id="val-best">0</span></div>
         </div>
-        <div id="start-toast">PLACE FINGER TO START</div>
-        <div id="shield-toast">🛡️ SHIELD: <span id="shield-timer">8.0</span>s</div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-    // ================= CONFIGURATION =================
-    // ⚠️ PASTE YOUR SAVED AES KEY HERE
-    const ENCRYPTION_KEY = "YOUR_AES_KEY_HERE"; 
-
+    // --- ⚠️ CONFIG ---
+    const ENCRYPTION_KEY = "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY"; 
     const firebaseConfig = {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
         projectId: "seamless-dash"
     };
 
-    // ================= INITIALIZATION =================
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d', { alpha: false });
     let W, H, animId, lastTime = 0;
 
-    const STATE = {
-        phase: 'MENU', score: 0, highscore: 0, level: 1,
-        shield: 0, user: null, sound: true, shake: 0,
-        bgTransition: 0, isBanned: false
-    };
+    const STATE = { phase: 'MENU', score: 0, highscore: 0, user: null, level: 1 };
 
-    // ================= CRYPTOGRAPHY =================
-    async function encryptPID(pid) {
-        if(ENCRYPTION_KEY === "YOUR_AES_KEY_HERE" || !ENCRYPTION_KEY) {
-            // Safe fallback if key missing during dev
-            return { enc: btoa(pid), iv: "" }; 
-        }
-        
-        try {
-            const enc = new TextEncoder();
-            const keyData = enc.encode(ENCRYPTION_KEY);
-            const hash = await crypto.subtle.digest("SHA-256", keyData);
-            const key = await crypto.subtle.importKey("raw", hash, { name:"AES-GCM" }, false, ["encrypt"]);
-            
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(pid));
-            
-            return {
-                enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-                iv: btoa(String.fromCharCode(...iv))
-            };
-        } catch (e) {
-            console.error("Encrypt Error", e);
-            return { enc: btoa(pid), iv: "" }; 
-        }
-    }
-
-    // ================= FIREBASE LOGIC =================
-    async function syncUserWithFirestore(name, pid) {
-        if(!name || !pid) return;
-        
-        const { enc, iv } = await encryptPID(pid);
-        const docRef = db.collection("players").doc(pid);
-        
-        try {
-            const doc = await docRef.get();
-            if (doc.exists) {
-                const data = doc.data();
-                if(data.banned) {
-                    STATE.isBanned = true;
-                    alert("🚫 Account Suspended. Contact HR.");
-                    return false;
-                }
-                STATE.highscore = data.highScore || 0;
-                docRef.update({ lastSeen: Date.now(), name: name }); 
-            } else {
-                STATE.highscore = 0;
-                await docRef.set({
-                    name: name,
-                    pid_enc: enc,
-                    pid_iv: iv,
-                    highScore: 0,
-                    lastSeen: Date.now(),
-                    banned: false
-                });
-            }
-            document.getElementById('val-best').textContent = STATE.highscore;
-            return true;
-        } catch (e) {
-            console.error("Sync Error:", e);
-            STATE.highscore = localStorage.getItem('seamex_hs_' + pid) || 0;
-            return true; 
-        }
-    }
-
-    async function saveScoreToFirestore() {
-        if(!STATE.user || STATE.isBanned) return;
-        const currentScore = Math.floor(STATE.score);
-        if (currentScore > STATE.highscore) {
-            STATE.highscore = currentScore;
-            localStorage.setItem('seamex_hs_' + STATE.user.id, currentScore);
-            try {
-                await db.collection("players").doc(STATE.user.id).update({
-                    highScore: currentScore,
-                    lastSeen: Date.now()
-                });
-            } catch(e) {}
-        }
-    }
-
-    function fetchLeaderboard() {
-        db.collection("players")
-          .where("banned", "==", false)
-          .orderBy("highScore", "desc")
-          .limit(5)
-          .get()
-          .then((snap) => {
-              let html = "";
-              let rank = 1;
-              STATE.lbData = [];
-              snap.forEach(doc => {
-                  const d = doc.data();
-                  STATE.lbData.push({name: d.name, score: d.highScore});
-                  html += `<div class="lb-row"><span>#${rank++} ${d.name.split(' ')[0]}</span><strong>${d.highScore}</strong></div>`;
-              });
-              if(html === "") html = "<div style='text-align:center'>No records yet</div>";
-              document.getElementById('menu-lb').innerHTML = html;
-              document.getElementById('death-lb').innerHTML = html;
-          })
-          .catch(e => {
-              document.getElementById('menu-lb').innerHTML = "<div style='text-align:center;'>Leaderboard Offline</div>";
-          });
-    }
-
-    // ================= MANUAL VALIDATION LOGIC =================
+    // --- VALIDATION ---
     const nameIn = document.getElementById('inp-name');
     const idIn = document.getElementById('inp-id');
     const loginBtn = document.getElementById('btn-login');
 
     function validate() {
-        // Allowed: Letters, Spaces, Dots (for names like T.J. Miller)
         const nv = /^[A-Za-z\s\.]{3,}$/.test(nameIn.value.trim());
-        // Allowed: 4 to 10 digits
         const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
-
-        // Toggle Nudge Visibility
-        // Show nudge if field is NOT empty AND regex fails
         document.getElementById('nudge-name').style.visibility = (nameIn.value.length > 0 && !nv) ? "visible" : "hidden";
         document.getElementById('nudge-id').style.visibility = (idIn.value.length > 0 && !iv) ? "visible" : "hidden";
-        
-        // Enable Button Only if both Valid
         loginBtn.disabled = !(nv && iv);
     }
+    nameIn.oninput = idIn.oninput = validate;
 
-    // Attach listeners for robust feedback
-    nameIn.addEventListener('input', validate);
-    idIn.addEventListener('input', validate);
-    // Run once on load to reset state
-    validate();
-
-    // ================= SHAREPOINT AUTH =================
+    // --- CORE LOGIC ---
     function initSharePointAuth() {
-        const loader = document.getElementById('sp-loader');
-        const loginForm = document.getElementById('login-form');
-        const welcomeScreen = document.getElementById('welcome-back');
-        const oopsMsg = document.getElementById('sp-error-msg');
-
-        loader.style.display = 'block';
-        loginForm.style.display = 'none';
-        welcomeScreen.style.display = 'none';
-        oopsMsg.style.display = 'none';
-
-        setTimeout(() => {
-            const spNameEl = document.querySelector('input[id$="hdnName"]');
-            const spIdEl = document.querySelector('input[id$="hdnPoornataId"]');
-            
-            const spName = spNameEl ? spNameEl.value : null;
-            const spId = spIdEl ? spIdEl.value : null;
-
-            if (spName && spId) {
-                // SUCCESS: Found SharePoint Data
-                STATE.user = { name: spName, id: spId };
-                document.getElementById('user-name').textContent = spName;
-                document.getElementById('user-display-id').textContent = spId;
-                updateGreeting();
-                
-                syncUserWithFirestore(spName, spId).then((allowed) => {
-                    loader.style.display = 'none';
-                    if(allowed) {
-                        welcomeScreen.style.display = 'block';
-                        fetchLeaderboard();
-                    } else {
-                        // Banned user -> show error on login form
-                        oopsMsg.textContent = "Account Suspended";
-                        oopsMsg.style.display = 'block';
-                        loginForm.style.display = 'block';
-                    }
-                });
+        const spNameEl = document.querySelector('input[id$="hdnName"]');
+        const spIdEl = document.querySelector('input[id$="hdnPoornataId"]');
+        
+        if (spNameEl && spIdEl && spNameEl.value && spIdEl.value) {
+            loginAs(spNameEl.value, spIdEl.value);
+        } else {
+            const saved = localStorage.getItem('seamex_user_v38');
+            if (saved) {
+                const u = JSON.parse(saved);
+                loginAs(u.name, u.id);
             } else {
-                // FAIL: No SharePoint Data -> Show Manual Login + OOPS Message
-                loader.style.display = 'none';
-                
-                // Check if we have a saved local user to suggest
-                const saved = localStorage.getItem('seamex_user_v38');
-                if(saved) {
-                    STATE.user = JSON.parse(saved);
-                    document.getElementById('user-name').textContent = STATE.user.name.split(' ')[0];
-                    document.getElementById('user-display-id').textContent = STATE.user.id;
-                    updateGreeting();
-                    welcomeScreen.style.display = 'block';
-                    syncUserWithFirestore(STATE.user.name, STATE.user.id);
-                    fetchLeaderboard();
-                } else {
-                    // Clean start -> Show "OOPS" and Form
-                    oopsMsg.style.display = 'block';
-                    loginForm.style.display = 'block';
-                    fetchLeaderboard();
-                }
+                document.getElementById('sp-loader').style.display = 'none';
+                document.getElementById('sp-error-msg').style.display = 'block';
             }
-        }, 1000); 
-    }
-
-    // ================= GAME LOGIC =================
-    const COLORS = {
-        day: { top: [227, 242, 253], bot: [255, 255, 255] },
-        sunset: { top: [255, 154, 158], bot: [250, 208, 196] },
-        night: { top: [30, 60, 114], bot: [42, 82, 152] }
-    };
-
-    function lerpColor(c1, c2, t) {
-        return c1.map((v, i) => Math.floor(v + (c2[i] - v) * t));
-    }
-
-    const TRIVIA = [
-        "Seamex enables agile digital HR transformations for modern workplaces.",
-        "The Poornata App by Seamex simplifies employee lifecycle management.",
-        "Seamex solutions are built to scale with your organization's growth.",
-        "Empower your workforce with Seamex's intuitive digital platforms.",
-        "Seamex: Driving innovation through seamless employee experiences."
-    ];
-
-    const audio = {
-        bgm: new Audio('bgm.mp3'), die: new Audio('Die.mp3'),
-        lvl: new Audio('levelup.mp3'), pwr: new Audio('powerup.mp3')
-    };
-    audio.bgm.loop = true;
-
-    let player = { x:0, y:0, r:46, tx:0, ty:0, bob:0, history: [] };
-    let enemies = [], items = [], clouds = [], dots = [], particles = [];
-
-    function updateGreeting() {
-        const hour = new Date().getHours();
-        let greet = (hour < 12) ? "Good morning" : (hour < 17) ? "Good afternoon" : "Good evening";
-        document.getElementById('time-greeting').textContent = greet;
-    }
-
-    function resize() {
-        W = canvas.width = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        dots = Array.from({length: 45}, () => ({ 
-            x:Math.random()*W, y:Math.random()*H, s:0.3+Math.random()*0.5, 
-            r:1+Math.random()*2, pulse: Math.random()*Math.PI 
-        }));
-        clouds = Array.from({length: 6}, () => ({ x:Math.random()*W, y:Math.random()*H, s:0.8+Math.random()*1.2, w:100+Math.random()*80 }));
-    }
-    window.onresize = resize; resize();
-
-    function spawnParticles(x, y, color, count=10) {
-        for(let i=0; i<count; i++) {
-            particles.push({
-                x, y, color,
-                vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
-                life: 1.0, r: 2+Math.random()*4
-            });
         }
+        fetchLeaderboard();
+    }
+
+    function loginAs(name, id) {
+        STATE.user = { name, id };
+        document.getElementById('sp-loader').style.display = 'none';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('welcome-back').style.display = 'block';
+        document.getElementById('user-name').textContent = name.split(' ')[0];
+        document.getElementById('user-display-id').textContent = id;
+        STATE.highscore = localStorage.getItem('seamex_hs_' + id) || 0;
+        document.getElementById('val-best').textContent = STATE.highscore;
+    }
+
+    function fetchLeaderboard() {
+        db.collection("players").orderBy("highScore", "desc").limit(5).get().then(snap => {
+            let h = "";
+            snap.forEach(doc => {
+                const d = doc.data();
+                h += `<div class="lb-row"><span>${d.name.split(' ')[0]}</span><strong>${d.highScore}</strong></div>`;
+            });
+            document.getElementById('menu-lb').innerHTML = h || "No scores yet";
+            document.getElementById('death-lb').innerHTML = h || "No scores yet";
+        });
     }
 
     function startReady() {
-        if(!STATE.user) {
-            const name = nameIn.value.trim();
-            const id = idIn.value.trim();
-            STATE.user = { name, id };
+        if (!STATE.user) {
+            loginAs(nameIn.value.trim(), idIn.value.trim());
             localStorage.setItem('seamex_user_v38', JSON.stringify(STATE.user));
-            syncUserWithFirestore(name, id);
         }
-        if(STATE.isBanned) return;
-
-        STATE.phase = 'READY'; STATE.score = 0; STATE.level = 1; STATE.shield = 0; STATE.bgTransition = 0;
-        enemies = []; items = []; particles = []; player.history = [];
-        player.x = W/2; player.y = H*0.75; player.bob = 0;
+        STATE.phase = 'PLAYING';
+        STATE.score = 0;
         document.body.className = 'state-playing';
-        document.getElementById('start-toast').style.display = 'block';
         if(!animId) requestAnimationFrame(loop);
     }
 
-    function endGame() {
-        if(STATE.phase !== 'PLAYING') return;
-        STATE.phase = 'GAMEOVER'; STATE.shake = 15;
-        player.bob = 0; player.history = [];
-        
-        audio.bgm.pause();
-        if(STATE.sound) audio.die.play().catch(()=>{});
-        
-        saveScoreToFirestore().then(() => fetchLeaderboard());
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.onresize = resize; resize();
 
-        let currentScore = Math.floor(STATE.score);
-        let motivationText = "NEW ALL-TIME RECORD!";
-        if(STATE.lbData && STATE.lbData.length > 0) {
-            const nextRankIdx = STATE.lbData.findIndex(e => e.score > currentScore);
-            if(nextRankIdx !== -1) {
-                const gap = STATE.lbData[nextRankIdx].score - currentScore;
-                motivationText = `You were only ${gap} pts away from #${nextRankIdx+1}!`;
-            } else if (currentScore > 0 && (!STATE.lbData[0] || currentScore > STATE.lbData[0].score)) {
-                motivationText = "YOU ARE THE CHAMPION! 🏆";
-            }
+    function loop(t) {
+        ctx.fillStyle = "#e3f2fd"; ctx.fillRect(0,0,W,H);
+        if (STATE.phase === 'PLAYING') {
+            STATE.score += 0.1;
+            document.getElementById('val-score').textContent = Math.floor(STATE.score);
+            // Draw dummy player if image fails
+            ctx.fillStyle = "red";
+            ctx.fillRect(W/2 - 25, H-100, 50, 50);
         }
-        document.getElementById('motivation-tag').textContent = motivationText;
-        document.getElementById('trivia-box').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
-        document.body.className = 'state-gameover';
-    }
-
-    const handleDown = (e) => {
-        if(STATE.phase === 'READY') { 
-            STATE.phase = 'PLAYING'; 
-            document.getElementById('start-toast').style.display = 'none';
-            if(STATE.sound) audio.bgm.play().catch(()=>{}); 
-        }
-        updateTarget(e);
-    };
-    const updateTarget = (e) => {
-        const t = e.touches ? e.touches[0] : e;
-        player.tx = t.clientX; player.ty = t.clientY - 75;
-    };
-
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleDown(e); });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); updateTarget(e); });
-    canvas.addEventListener('touchend', () => { if(STATE.phase === 'PLAYING') endGame(); });
-    canvas.addEventListener('mousedown', handleDown);
-    canvas.addEventListener('mouseup', () => { if(STATE.phase === 'PLAYING') endGame(); });
-
-    function update(dt) {
-        if (STATE.shake > 0) {
-            STATE.shake *= 0.85; 
-            if (STATE.shake < 0.1) STATE.shake = 0;
-        }
-
-        dots.forEach(d => { 
-            d.y += d.s * (STATE.phase === 'PLAYING' ? 3 : 1); 
-            d.pulse += 0.05;
-            if(d.y > H) { d.y = -10; d.x = Math.random()*W; } 
-        });
-
-        if(STATE.phase === 'GAMEOVER') {
-            player.bob = 0;
-            return;
-        }
-
-        if(STATE.phase === 'READY') {
-            player.x = W/2 + Math.sin(Date.now()*0.005)*10;
-            player.bob = Math.sin(Date.now()*0.006) * 6;
-            return;
-        }
-
-        STATE.score += 0.15 * (dt/16.6);
-        document.getElementById('val-score').textContent = Math.floor(STATE.score);
-        
-        if(Math.floor(STATE.score) > 0 && Math.floor(STATE.score) % 100 === 0 && (STATE.score % 100) < 0.2) {
-            STATE.level++; if(STATE.sound) audio.lvl.play().catch(()=>{});
-        }
-        document.getElementById('val-lvl').textContent = STATE.level;
-        
-        let targetTransition = 0;
-        if(STATE.level >= 4 && STATE.level < 7) targetTransition = 0.5;
-        else if(STATE.level >= 7) targetTransition = 1.0;
-        STATE.bgTransition += (targetTransition - STATE.bgTransition) * 0.005;
-
-        player.bob = Math.sin(Date.now()*0.006) * 6;
-        player.x += (player.tx - player.x) * 0.18 * (dt/16.6);
-        player.y += (player.ty - player.y) * 0.18 * (dt/16.6);
-        player.history.unshift({x: player.x, y: player.y + player.bob});
-        if(player.history.length > 5 + STATE.level) player.history.pop();
-
-        if(STATE.shield > 0) {
-            STATE.shield -= (dt/16.6);
-            document.getElementById('shield-toast').style.display = 'block';
-            document.getElementById('shield-timer').textContent = Math.max(0, STATE.shield/60).toFixed(1);
-        } else { document.getElementById('shield-toast').style.display = 'none'; }
-
-        clouds.forEach(c => { c.y += c.s * 2.5; if(c.y > H + 100) { c.y = -120; c.x = Math.random()*W; } });
-        
-        for(let i=particles.length-1; i>=0; i--){
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-            if(p.life <= 0) particles.splice(i,1);
-        }
-
-        for(let i=enemies.length-1; i>=0; i--) {
-            let e = enemies[i]; 
-            e.y += e.s * (dt/16.6);
-            e.angle += e.rotSpd; 
-            if(STATE.level >= 10) e.x += e.vx;
-
-            const dist = Math.hypot(player.x - e.x, player.y - (e.y - player.bob));
-            if(dist < player.r + e.r - 10) {
-                if(STATE.shield > 0) {
-                    spawnParticles(e.x, e.y, '#FFC107');
-                    STATE.shake = 10;
-                    enemies.splice(i,1);
-                } else { endGame(); return; }
-            }
-            if(e.y > H + 100 || e.x < -50 || e.x > W+50) enemies.splice(i,1);
-        }
-
-        for(let i=items.length-1; i>=0; i--) {
-            let it = items[i]; it.y += 4 * (dt/16.6);
-            if(Math.hypot(player.x - it.x, player.y - it.y) < 60) {
-                STATE.shield = 480; if(STATE.sound) audio.pwr.play().catch(()=>{});
-                spawnParticles(it.x, it.y, '#0984e3', 20);
-                items.splice(i,1);
-            }
-            if(it.y > H + 100) items.splice(i,1);
-        }
-        
-        const rate = 0.015 + (Math.min(STATE.level, 10) * 0.005);
-        if(Math.random() < rate) {
-            enemies.push({ 
-                x:Math.random()*W, y:-60, 
-                r:22+Math.random()*20, 
-                s:4 + (STATE.level*0.4), 
-                vx: (Math.random()-0.5)*2, 
-                angle: Math.random()*Math.PI*2, 
-                rotSpd: (Math.random()-0.5)*0.1, 
-                img: Math.random()>0.5?document.getElementById('asset-v1'):document.getElementById('asset-v2') 
-            });
-        }
-        if(STATE.score > 50 && Math.random() < 0.003) items.push({ x:Math.random()*W, y:-60, r:30 });
-    }
-
-    function draw() {
-        ctx.save();
-        if(STATE.shake > 0.5) ctx.translate((Math.random()-0.5)*STATE.shake, (Math.random()-0.5)*STATE.shake);
-
-        let currentTop, currentBot;
-        if(STATE.bgTransition < 0.5) {
-            let t = STATE.bgTransition * 2;
-            currentTop = lerpColor(COLORS.day.top, COLORS.sunset.top, t);
-            currentBot = lerpColor(COLORS.day.bot, COLORS.sunset.bot, t);
-        } else {
-            let t = (STATE.bgTransition - 0.5) * 2;
-            currentTop = lerpColor(COLORS.sunset.top, COLORS.night.top, t);
-            currentBot = lerpColor(COLORS.sunset.bot, COLORS.night.bot, t);
-        }
-
-        let grad = ctx.createLinearGradient(0,0,0,H);
-        grad.addColorStop(0, `rgb(${currentTop.join(',')})`); 
-        grad.addColorStop(1, `rgb(${currentBot.join(',')})`);
-        ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-
-        if(STATE.phase === 'MENU' || STATE.phase === 'GAMEOVER') {
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(0,0,W,H);
-        }
-
-        dots.forEach(d => { 
-            ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.sin(d.pulse)*0.2})`;
-            ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fill(); 
-        });
-
-        if(STATE.phase !== 'MENU' && STATE.phase !== 'GAMEOVER') {
-            clouds.forEach(c => ctx.drawImage(document.getElementById('asset-cloud'), c.x - c.w/2, c.y, c.w, c.w*0.6));
-        }
-
-        if(STATE.phase !== 'GAMEOVER') {
-            player.history.forEach((pos, i) => {
-                ctx.globalAlpha = 0.3 - (i * 0.05);
-                ctx.drawImage(document.getElementById('asset-player'), pos.x-46, pos.y-46, 92, 92);
-            });
-        }
-        ctx.globalAlpha = 1.0;
-
-        enemies.forEach(e => {
-            ctx.save();
-            ctx.translate(e.x, e.y);
-            ctx.rotate(e.angle);
-            ctx.drawImage(e.img, -e.r, -e.r, e.r*2, e.r*2);
-            ctx.restore();
-        });
-
-        items.forEach(it => ctx.drawImage(document.getElementById('asset-shield'), it.x-30, it.y-30, 60, 60));
-
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-
-        let finalBob = (STATE.phase === 'GAMEOVER') ? 0 : player.bob;
-        ctx.drawImage(document.getElementById('asset-player'), player.x-46, (player.y-46) + finalBob, 92, 92);
-        
-        if(STATE.shield > 0 && STATE.phase === 'PLAYING') {
-            ctx.beginPath(); ctx.arc(player.x, player.y + finalBob, 60, 0, Math.PI*2);
-            ctx.strokeStyle = `rgba(255, 193, 7, ${0.5 + Math.sin(Date.now()*0.01)*0.3})`; ctx.lineWidth = 5; ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-
-    function loop(time) {
-        let dt = time - lastTime;
-        if(dt > 100) dt = 16; 
-        lastTime = time;
-        update(dt); draw();
         animId = requestAnimationFrame(loop);
     }
 
     document.getElementById('btn-login').onclick = startReady;
     document.getElementById('btn-quick-start').onclick = startReady;
-    document.getElementById('btn-restart').onclick = startReady;
-    document.getElementById('btn-menu').onclick = () => location.reload();
-    document.getElementById('btn-change').onclick = () => { localStorage.removeItem('seamex_user_v38'); location.reload(); };
-    document.getElementById('toggle-sound').onclick = () => {
-        STATE.sound = !STATE.sound;
-        document.getElementById('toggle-sound').textContent = STATE.sound ? "🔊 Sound: ON" : "🔇 Sound: OFF";
-        if(!STATE.sound) audio.bgm.pause();
-    };
-    document.getElementById('btn-share').onclick = () => {
-        const msg = `🚀 I dashed past the viruses and scored ${Math.floor(STATE.score)} in Seamless Dash on Poornata App - Download now to Play here: https://onelink.to/6kpm3g`;
-        if (navigator.share) navigator.share({ text: msg });
-        else { navigator.clipboard.writeText(msg); alert("Challenge copied!"); }
-    };
+    document.getElementById('btn-restart').onclick = () => location.reload();
+    document.getElementById('btn-change').onclick = () => { localStorage.clear(); location.reload(); };
 
-    initUser();
+    // --- FIXED CALL ---
+    initSharePointAuth(); 
 </script>
 </body>
 </html>
