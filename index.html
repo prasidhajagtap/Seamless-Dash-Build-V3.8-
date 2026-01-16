@@ -29,7 +29,7 @@
         .logo { width: 130px; margin: 0 auto 10px; }
         .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
         
-        /* Loading Spinner for SharePoint Sync */
+        /* Loading Spinner */
         #sp-loader { margin: 15px 0; color: var(--blue); font-weight: 600; font-size: 14px; display: none; }
         .spinner { width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid var(--blue); border-radius: 50%; animation: spin 1s linear infinite; display:inline-block; vertical-align:middle; margin-right:5px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -58,7 +58,6 @@
         #shield-toast { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); background: var(--blue); color: white; padding: 6px 18px; border-radius: 30px; font-weight: 800; font-size: 12px; display: none; }
         #motivation-tag { color: var(--blue); font-weight: 800; font-size: 14px; margin-top: 5px; }
         
-        /* Leaderboard styling */
         .lb { background: #f8f9fa; border-radius: 15px; padding: 12px; margin: 10px 0; font-size: 13px; border: 1px solid #eee; min-height: 100px; }
         .lb-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
         .lb-row:last-child { border: none; }
@@ -109,7 +108,7 @@
                 <div class="how-item">🛡️ <strong>Shields</strong> appear after 50 points!</div>
             </div>
 
-            <div class="lb" id="menu-lb"><div class="lb-loader">Loading Leaderboard...</div></div>
+            <div class="lb" id="menu-lb"><div class="lb-loader">Connecting to Leaderboard...</div></div>
             <div class="text-btn" id="toggle-sound">🔊 Sound: ON</div>
         </div>
 
@@ -138,8 +137,8 @@
 
 <script>
     // ================= CONFIGURATION =================
-    // ⚠️ REPLACE THIS WITH THE SAME KEY USED IN ADMIN PANEL
-    const ENCRYPTION_KEY = "SeamexDash2025SecretKey"; 
+    // ⚠️ REPLACE THIS WITH YOUR AES KEY
+    const ENCRYPTION_KEY = "YOUR_AES_KEY_HERE"; 
 
     const firebaseConfig = {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
@@ -160,9 +159,12 @@
         bgTransition: 0, isBanned: false
     };
 
-    // ================= CRYPTOGRAPHY (MATCHING ADMIN JS) =================
+    // ================= CRYPTOGRAPHY =================
     async function encryptPID(pid) {
-        if(!ENCRYPTION_KEY) return { enc: btoa(pid), iv: "" }; // Fallback if no key
+        if(ENCRYPTION_KEY === "YOUR_AES_KEY_HERE") {
+            console.warn("AES Key not set in index.html");
+            return { enc: btoa(pid), iv: "" }; 
+        }
         
         const enc = new TextEncoder();
         const keyData = enc.encode(ENCRYPTION_KEY);
@@ -182,10 +184,7 @@
     async function syncUserWithFirestore(name, pid) {
         if(!name || !pid) return;
         
-        // 1. Encrypt the PID for Admin Panel compatibility
         const { enc, iv } = await encryptPID(pid);
-        
-        // 2. Check if user exists (We use PID as Document ID to ensure uniqueness)
         const docRef = db.collection("players").doc(pid);
         
         try {
@@ -198,10 +197,8 @@
                     return false;
                 }
                 STATE.highscore = data.highScore || 0;
-                // Update Last Seen
-                docRef.update({ lastSeen: Date.now(), name: name }); // Update name in case it changed
+                docRef.update({ lastSeen: Date.now(), name: name }); 
             } else {
-                // Create new user
                 STATE.highscore = 0;
                 await docRef.set({
                     name: name,
@@ -215,23 +212,18 @@
             document.getElementById('val-best').textContent = STATE.highscore;
             return true;
         } catch (e) {
-            console.error("Firebase Sync Error:", e);
-            // Fallback to local storage if offline
+            console.error("Sync Error - Check Firebase Rules:", e);
             STATE.highscore = localStorage.getItem('seamex_hs_' + pid) || 0;
-            return true; 
+            return true; // Fallback to play offline
         }
     }
 
     async function saveScoreToFirestore() {
         if(!STATE.user || STATE.isBanned) return;
-        
         const currentScore = Math.floor(STATE.score);
         if (currentScore > STATE.highscore) {
             STATE.highscore = currentScore;
-            // Save to Local
             localStorage.setItem('seamex_hs_' + STATE.user.id, currentScore);
-            
-            // Save to Cloud
             try {
                 await db.collection("players").doc(STATE.user.id).update({
                     highScore: currentScore,
@@ -242,7 +234,6 @@
     }
 
     function fetchLeaderboard() {
-        // Query top 5 players
         db.collection("players")
           .where("banned", "==", false)
           .orderBy("highScore", "desc")
@@ -251,29 +242,23 @@
           .then((snap) => {
               let html = "";
               let rank = 1;
-              let leaderboardData = [];
-              
+              STATE.lbData = [];
               snap.forEach(doc => {
                   const d = doc.data();
-                  leaderboardData.push({name: d.name, score: d.highScore});
+                  STATE.lbData.push({name: d.name, score: d.highScore});
                   html += `<div class="lb-row"><span>#${rank++} ${d.name.split(' ')[0]}</span><strong>${d.highScore}</strong></div>`;
               });
-              
               if(html === "") html = "<div style='text-align:center'>No records yet</div>";
-              
               document.getElementById('menu-lb').innerHTML = html;
               document.getElementById('death-lb').innerHTML = html;
-              
-              // Save for motivation logic
-              STATE.lbData = leaderboardData;
           })
           .catch(e => {
-              console.error(e);
-              document.getElementById('menu-lb').innerHTML = "Offline Mode";
+              console.error("Leaderboard Error:", e);
+              document.getElementById('menu-lb').innerHTML = "<div style='text-align:center; color:red'>Enable 'read' in Firebase Rules</div>";
           });
     }
 
-    // ================= SHAREPOINT AUTHENTICATION =================
+    // ================= SHAREPOINT AUTH =================
     function initSharePointAuth() {
         const loader = document.getElementById('sp-loader');
         const loginForm = document.getElementById('login-form');
@@ -282,16 +267,16 @@
         loader.style.display = 'block';
         loginForm.style.display = 'none';
 
-        // Check for SharePoint hidden fields
         setTimeout(() => {
-            const spName = document.getElementById("ctl00_ctl49_hdnName")?.value;
-            const spId = document.getElementById("ctl00_ctl49_hdnPoornataId")?.value;
-
-            // Mock for testing (Remove in production if needed, or keep as fallback)
-            // const spName = "Test User"; const spId = "12345"; 
+            // ROBUST SEARCH: Look for IDs ending in 'hdnName' and 'hdnPoornataId'
+            const spNameEl = document.querySelector('input[id$="hdnName"]');
+            const spIdEl = document.querySelector('input[id$="hdnPoornataId"]');
+            
+            const spName = spNameEl ? spNameEl.value : null;
+            const spId = spIdEl ? spIdEl.value : null;
 
             if (spName && spId) {
-                // Found SharePoint Data
+                // FOUND!
                 STATE.user = { name: spName, id: spId };
                 document.getElementById('user-name').textContent = spName;
                 document.getElementById('user-display-id').textContent = spId;
@@ -301,16 +286,14 @@
                     loader.style.display = 'none';
                     if(allowed) {
                         welcomeScreen.style.display = 'block';
-                        fetchLeaderboard(); // Get global scores
+                        fetchLeaderboard();
                     } else {
-                        loginForm.style.display = 'block'; // Banned or error
+                        loginForm.style.display = 'block';
                     }
                 });
             } else {
-                // No SharePoint Data - Show Manual Login
+                // NOT FOUND - Check Manual Storage
                 loader.style.display = 'none';
-                
-                // Check LocalStorage for manual login persistence
                 const saved = localStorage.getItem('seamex_user_v38');
                 if(saved) {
                     STATE.user = JSON.parse(saved);
@@ -322,13 +305,13 @@
                     fetchLeaderboard();
                 } else {
                     loginForm.style.display = 'block';
-                    fetchLeaderboard(); // Fetch anyway
+                    fetchLeaderboard();
                 }
             }
-        }, 800); // Small delay to simulate sync/visual feel
+        }, 1000); // 1s wait for SP to load
     }
 
-    // ================= GAME LOGIC (UNCHANGED CORE) =================
+    // ================= GAME LOGIC =================
     const COLORS = {
         day: { top: [227, 242, 253], bot: [255, 255, 255] },
         sunset: { top: [255, 154, 158], bot: [250, 208, 196] },
@@ -373,20 +356,6 @@
     }
     window.onresize = resize; resize();
 
-    // Manual Validation
-    const nameIn = document.getElementById('inp-name');
-    const idIn = document.getElementById('inp-id');
-    const loginBtn = document.getElementById('btn-login');
-
-    function validate() {
-        const nv = /^[A-Za-z\s]{3,}$/.test(nameIn.value.trim());
-        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
-        document.getElementById('nudge-name').style.visibility = (nameIn.value==="" || nv)?"hidden":"visible";
-        document.getElementById('nudge-id').style.visibility = (idIn.value==="" || iv)?"hidden":"visible";
-        loginBtn.disabled = !(nv && iv);
-    }
-    nameIn.oninput = idIn.oninput = validate;
-
     function spawnParticles(x, y, color, count=10) {
         for(let i=0; i<count; i++) {
             particles.push({
@@ -398,7 +367,6 @@
     }
 
     function startReady() {
-        // If coming from manual login
         if(!STATE.user) {
             const name = nameIn.value.trim();
             const id = idIn.value.trim();
@@ -406,7 +374,6 @@
             localStorage.setItem('seamex_user_v38', JSON.stringify(STATE.user));
             syncUserWithFirestore(name, id);
         }
-        
         if(STATE.isBanned) return;
 
         STATE.phase = 'READY'; STATE.score = 0; STATE.level = 1; STATE.shield = 0; STATE.bgTransition = 0;
@@ -425,30 +392,19 @@
         audio.bgm.pause();
         if(STATE.sound) audio.die.play().catch(()=>{});
         
-        // SAVE SCORE TO FIREBASE
-        saveScoreToFirestore().then(() => {
-            fetchLeaderboard(); // Refresh LB on death
-        });
+        saveScoreToFirestore().then(() => fetchLeaderboard());
 
-        // Motivation Logic using LIVE leaderboard data
         let currentScore = Math.floor(STATE.score);
         let motivationText = "NEW ALL-TIME RECORD!";
-        
         if(STATE.lbData && STATE.lbData.length > 0) {
-            // Find first player with score higher than current
             const nextRankIdx = STATE.lbData.findIndex(e => e.score > currentScore);
-            
-            // If we found someone higher (nextRankIdx != -1)
-            // Or if everyone is lower, we are #1
             if(nextRankIdx !== -1) {
-                // You are behind this person
                 const gap = STATE.lbData[nextRankIdx].score - currentScore;
                 motivationText = `You were only ${gap} pts away from #${nextRankIdx+1}!`;
             } else if (currentScore > 0 && (!STATE.lbData[0] || currentScore > STATE.lbData[0].score)) {
                 motivationText = "YOU ARE THE CHAMPION! 🏆";
             }
         }
-        
         document.getElementById('motivation-tag').textContent = motivationText;
         document.getElementById('trivia-box').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
         document.body.className = 'state-gameover';
@@ -663,9 +619,7 @@
         else { navigator.clipboard.writeText(msg); alert("Challenge copied!"); }
     };
 
-    // Auto-boot
-    initSharePointAuth();
-    requestAnimationFrame(loop);
+    initUser();
 </script>
 </body>
 </html>
