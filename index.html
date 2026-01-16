@@ -3,214 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seamless Dash - Seamex</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
+    <title>Seamless Dash - Phase 1</title>
     <style>
-        /* CSS INLINED FOR MAX COMPATIBILITY */
-        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; }
+        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; --bg: #e3f2fd; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: 100%; }
 
+        /* UI Screens */
         #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-        .screen-box { 
-            background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 30px; width: 88%; max-width: 360px; 
-            text-align: center; pointer-events: auto; box-shadow: 0 15px 45px rgba(0,0,0,0.3); 
-            border-top: 8px solid var(--red); display: none; flex-direction: column;
+        .screen { 
+            background: rgba(255, 255, 255, 0.98); padding: 30px; border-radius: 25px; width: 85%; max-width: 380px; 
+            text-align: center; pointer-events: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.3); 
+            display: none; flex-direction: column; border-top: 10px solid var(--red);
         }
 
-        body.state-menu #start-screen { display: flex; }
-        body.state-gameover #game-over-screen { display: flex; }
+        body.menu #start-screen, body.gameover #game-over-screen, body.error #error-screen { display: flex; }
+        body.playing #game-hud { display: flex !important; }
+
+        .logo-img { width: 120px; margin-bottom: 5px; }
+        .powered { font-size: 10px; font-weight: bold; color: #888; letter-spacing: 2px; margin-bottom: 20px; }
+        h1 { color: var(--red); margin: 0; font-size: 26px; text-transform: uppercase; font-weight: 900; }
         
-        .logo { width: 130px; margin: 0 auto 10px; }
-        .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
+        .oops-alert { color: var(--red); font-weight: 800; background: #ffebeb; padding: 10px; border-radius: 10px; margin: 15px 0; font-size: 14px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 16px; }
         
-        #sp-loader { margin: 15px 0; color: var(--blue); font-weight: 600; font-size: 14px; }
-        #sp-error-msg { display: none; color: var(--red); font-weight: 800; font-size: 14px; margin-bottom: 15px; background: #ffe6e6; padding: 10px; border-radius: 8px; }
+        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; margin-top: 10px; font-size: 16px; box-shadow: 0 4px 15px rgba(160,16,24,0.3); }
+        
+        .info-card { background: #f0f9ff; padding: 15px; border-radius: 15px; margin: 15px 0; text-align: left; font-size: 13px; color: #444; border: 1px solid #d1e9ff; }
 
-        .input-group { margin-bottom: 5px; text-align: left; }
-        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
-        .nudge { color: var(--red); font-size: 11px; font-weight: 700; margin-top: 4px; visibility: hidden; height: 12px; }
-
-        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        .main-btn:disabled { opacity: 0.4; filter: grayscale(1); }
-        .text-btn { background: none; border: none; color: var(--red); font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 13px; text-decoration: underline; }
-
-        #game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 5; }
-        .hud-top { position: absolute; top: 15px; width: 92%; left: 4%; display: flex; justify-content: space-between; }
-        .stat-pill { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 12px; border: 1px solid #eee; }
-        body.state-playing #game-hud { display: flex !important; }
-
-        .lb { background: #f8f9fa; border-radius: 15px; padding: 12px; margin: 10px 0; font-size: 13px; min-height: 80px; }
-        .lb-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
+        #game-hud { position: absolute; top: 20px; width: 100%; display: none; justify-content: space-around; z-index: 5; pointer-events: none; }
+        .hud-pill { background: rgba(255,255,255,0.9); padding: 8px 20px; border-radius: 30px; font-weight: 900; color: var(--red); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     </style>
 </head>
-<body class="state-menu">
-
-    <div style="display:none;">
-        <img id="asset-player" src="character.png">
-        <img id="asset-v1" src="icons8-virus-60.png">
-        <img id="asset-v2" src="icons8-virus-60 (1).png">
-        <img id="asset-shield" src="sheild.png">
-        <img id="asset-cloud" src="cloud1.png">
-    </div>
+<body class="menu">
 
     <div id="ui-layer">
-        <div id="start-screen" class="screen-box">
-            <img src="NEW Seamex logo.png" class="logo">
-            <h1 class="title">Seamless Dash</h1>
-            <div id="sp-loader">Syncing Poornata...</div>
+        <div id="start-screen" class="screen">
+            <img src="NEW Seamex logo.png" class="logo-img">
+            <div class="powered">POWERED BY SEAMEX</div>
+            <h1>Seamless Dash</h1>
 
-            <div id="welcome-back" style="display:none; margin:10px 0;">
-                <div style="font-size:14px; background: #f0f7ff; padding: 10px; border-radius: 12px;">
-                    Hi, <strong id="user-name"></strong>! (ID: <span id="user-display-id"></span>)
-                </div>
-                <button class="main-btn" id="btn-quick-start">START DASHING</button>
-                <button class="text-btn" id="btn-change">Change User</button>
+            <div id="manual-login" style="display:none;">
+                <div class="oops-alert">OOPS, Not able to find you!</div>
+                <input type="text" id="inp-name" placeholder="Full Name">
+                <input type="tel" id="inp-id" placeholder="Poornata ID">
+                <button class="main-btn" onclick="manualStart()">ENTER SKY</button>
             </div>
 
-            <div id="login-form">
-                <div id="sp-error-msg">OOPS, Not able to find you !</div>
-                <div class="input-group">
-                    <input type="text" id="inp-name" placeholder="Full Name">
-                    <div id="nudge-name" class="nudge">Letters only (min 3)</div>
+            <div id="ready-section" style="display:none;">
+                <div class="info-card">
+                    Welcome, <strong id="user-name-tag"></strong><br>
+                    ID: <span id="user-id-tag"></span>
                 </div>
-                <div class="input-group">
-                    <input type="tel" id="inp-id" placeholder="Poornata ID">
-                    <div id="nudge-id" class="nudge">Numbers only (4-10 digits)</div>
-                </div>
-                <button id="btn-login" class="main-btn" disabled>ENTER SKY</button>
+                <button class="main-btn" onclick="startGame()">START DASHING</button>
             </div>
-            <div class="lb" id="menu-lb">Loading Leaderboard...</div>
         </div>
 
-        <div id="game-over-screen" class="screen-box">
-            <h1 class="title">Dash Over</h1>
-            <div id="death-lb" class="lb"></div>
-            <button id="btn-restart" class="main-btn">DASH AGAIN</button>
-            <button class="text-btn" id="btn-menu">Back to Menu</button>
+        <div id="error-screen" class="screen">
+            <h1>Opps something is wrong</h1>
+            <p>Game assets could not be loaded. Please refresh.</p>
+            <button class="main-btn" onclick="location.reload()">REFRESH</button>
+        </div>
+
+        <div id="game-over-screen" class="screen">
+            <h1>Dash Over</h1>
+            <p>Score: <span id="final-score" style="font-size: 24px; font-weight: 900; color: var(--red);">0</span></p>
+            <button class="main-btn" onclick="startGame()">RETRY</button>
         </div>
     </div>
 
     <div id="game-hud">
-        <div class="hud-top">
-            <div class="stat-pill">⭐ <span id="val-score">0</span></div>
-            <div class="stat-pill">BEST: <span id="val-best">0</span></div>
-        </div>
+        <div class="hud-pill">⭐ <span id="val-score">0</span></div>
+        <div class="hud-pill">🏆 BEST: <span id="val-best">0</span></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- ⚠️ CONFIG ---
-    const ENCRYPTION_KEY = "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY"; 
-    const firebaseConfig = {
-        apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
-        authDomain: "seamless-dash.firebaseapp.com",
-        projectId: "seamless-dash"
-    };
+    // --- IDENTITY LOGIC ---
+    let userData = { name: "", id: "", highScore: localStorage.getItem('sd_best') || 0 };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    let W, H, animId, lastTime = 0;
+    function trySniffer() {
+        // Targeted SharePoint IDs 
+        const spName = document.getElementById("ctl00_ctl49_hdnName")?.value;
+        const spId = document.getElementById("ctl00_ctl49_hdnPoornataId")?.value;
 
-    const STATE = { phase: 'MENU', score: 0, highscore: 0, user: null, level: 1 };
-
-    // --- VALIDATION ---
-    const nameIn = document.getElementById('inp-name');
-    const idIn = document.getElementById('inp-id');
-    const loginBtn = document.getElementById('btn-login');
-
-    function validate() {
-        const nv = /^[A-Za-z\s\.]{3,}$/.test(nameIn.value.trim());
-        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
-        document.getElementById('nudge-name').style.visibility = (nameIn.value.length > 0 && !nv) ? "visible" : "hidden";
-        document.getElementById('nudge-id').style.visibility = (idIn.value.length > 0 && !iv) ? "visible" : "hidden";
-        loginBtn.disabled = !(nv && iv);
-    }
-    nameIn.oninput = idIn.oninput = validate;
-
-    // --- CORE LOGIC ---
-    function initSharePointAuth() {
-        const spNameEl = document.querySelector('input[id$="hdnName"]');
-        const spIdEl = document.querySelector('input[id$="hdnPoornataId"]');
-        
-        if (spNameEl && spIdEl && spNameEl.value && spIdEl.value) {
-            loginAs(spNameEl.value, spIdEl.value);
+        if (spName && spId && spName !== "Not Found") {
+            setIdentity(spName, spId);
         } else {
-            const saved = localStorage.getItem('seamex_user_v38');
-            if (saved) {
-                const u = JSON.parse(saved);
-                loginAs(u.name, u.id);
-            } else {
-                document.getElementById('sp-loader').style.display = 'none';
-                document.getElementById('sp-error-msg').style.display = 'block';
-            }
+            document.getElementById('manual-login').style.display = 'block';
         }
-        fetchLeaderboard();
     }
 
-    function loginAs(name, id) {
-        STATE.user = { name, id };
-        document.getElementById('sp-loader').style.display = 'none';
-        document.getElementById('login-form').style.display = 'none';
-        document.getElementById('welcome-back').style.display = 'block';
-        document.getElementById('user-name').textContent = name.split(' ')[0];
-        document.getElementById('user-display-id').textContent = id;
-        STATE.highscore = localStorage.getItem('seamex_hs_' + id) || 0;
-        document.getElementById('val-best').textContent = STATE.highscore;
+    function setIdentity(name, id) {
+        userData.name = name;
+        userData.id = id;
+        document.getElementById('user-name-tag').textContent = name;
+        document.getElementById('user-id-tag').textContent = id;
+        document.getElementById('val-best').textContent = userData.highScore;
+        document.getElementById('manual-login').style.display = 'none';
+        document.getElementById('ready-section').style.display = 'block';
     }
 
-    function fetchLeaderboard() {
-        db.collection("players").orderBy("highScore", "desc").limit(5).get().then(snap => {
-            let h = "";
-            snap.forEach(doc => {
-                const d = doc.data();
-                h += `<div class="lb-row"><span>${d.name.split(' ')[0]}</span><strong>${d.highScore}</strong></div>`;
-            });
-            document.getElementById('menu-lb').innerHTML = h || "No scores yet";
-            document.getElementById('death-lb').innerHTML = h || "No scores yet";
+    function manualStart() {
+        const n = document.getElementById('inp-name').value;
+        const i = document.getElementById('inp-id').value;
+        if(n.length > 2 && i.length > 3) setIdentity(n, i);
+        else alert("Please enter valid details");
+    }
+
+    // --- GAME ENGINE ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, animId, score = 0;
+    let player = { x: 80, y: 0, r: 40, vy: 0, gravity: 0.5, lift: -0.8 };
+    let enemies = [], isHolding = false;
+
+    // Asset Loading
+    const assets = { hero: new Image(), v1: new Image() };
+    assets.hero.src = 'character.png';
+    assets.v1.src = 'icons8-virus-60.png';
+
+    let loaded = 0;
+    [assets.hero, assets.v1].forEach(img => {
+        img.onload = () => { if(++loaded === 2) trySniffer(); };
+        img.onerror = () => { document.body.className = 'error'; };
+    });
+
+    function startGame() {
+        document.body.className = 'playing';
+        score = 0; enemies = []; player.y = H/2; player.vy = 0;
+        if(!animId) loop();
+    }
+
+    function loop() {
+        ctx.fillStyle = "#e3f2fd";
+        ctx.fillRect(0,0,W,H);
+        
+        score += 0.1;
+        document.getElementById('val-score').textContent = Math.floor(score);
+
+        // Player Physics
+        if(isHolding) player.vy += player.lift;
+        player.vy += player.gravity;
+        player.y += player.vy;
+        if(player.y > H || player.y < 0) endGame();
+
+        ctx.drawImage(assets.hero, player.x - player.r, player.y - player.r, player.r*2, player.r*2);
+
+        // Enemies
+        if(Math.random() < 0.02) enemies.push({ x: W, y: Math.random()*H, s: 5 });
+        enemies.forEach((e, i) => {
+            e.x -= e.s;
+            ctx.drawImage(assets.v1, e.x-30, e.y-30, 60, 60);
+            if(Math.hypot(player.x - e.x, player.y - e.y) < 60) endGame();
+            if(e.x < -50) enemies.splice(i, 1);
         });
-    }
 
-    function startReady() {
-        if (!STATE.user) {
-            loginAs(nameIn.value.trim(), idIn.value.trim());
-            localStorage.setItem('seamex_user_v38', JSON.stringify(STATE.user));
-        }
-        STATE.phase = 'PLAYING';
-        STATE.score = 0;
-        document.body.className = 'state-playing';
-        if(!animId) requestAnimationFrame(loop);
-    }
-
-    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-    window.onresize = resize; resize();
-
-    function loop(t) {
-        ctx.fillStyle = "#e3f2fd"; ctx.fillRect(0,0,W,H);
-        if (STATE.phase === 'PLAYING') {
-            STATE.score += 0.1;
-            document.getElementById('val-score').textContent = Math.floor(STATE.score);
-            // Draw dummy player if image fails
-            ctx.fillStyle = "red";
-            ctx.fillRect(W/2 - 25, H-100, 50, 50);
-        }
         animId = requestAnimationFrame(loop);
     }
 
-    document.getElementById('btn-login').onclick = startReady;
-    document.getElementById('btn-quick-start').onclick = startReady;
-    document.getElementById('btn-restart').onclick = () => location.reload();
-    document.getElementById('btn-change').onclick = () => { localStorage.clear(); location.reload(); };
+    function endGame() {
+        cancelAnimationFrame(animId); animId = null;
+        document.body.className = 'gameover';
+        const final = Math.floor(score);
+        document.getElementById('final-score').textContent = final;
+        if(final > userData.highScore) {
+            userData.highScore = final;
+            localStorage.setItem('sd_best', final);
+            document.getElementById('val-best').textContent = final;
+        }
+    }
 
-    // --- FIXED CALL ---
-    initSharePointAuth(); 
+    // --- CONTROLS ---
+    window.onmousedown = window.ontouchstart = () => isHolding = true;
+    window.onmouseup = window.ontouchend = () => isHolding = false;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.onresize = resize; resize();
+
 </script>
 </body>
 </html>
