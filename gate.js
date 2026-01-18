@@ -1,9 +1,8 @@
-/** * PHASE 1: TRANSPARENT IDENTITY GATE
- * This version focuses on NOT freezing and ensuring Firebase connection.
+/** * PHASE 1: IDENTITY GATE (With Back Button & Duplicate Handling)
  */
 const CONFIG = {
     MODE: 'TEST', 
-    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", 
+    AES_KEY: "YOUR_SECRET_KEY", 
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
@@ -13,69 +12,78 @@ const CONFIG = {
     }
 };
 
-// Initialize Firebase
 if (!firebase.apps.length) { firebase.initializeApp(CONFIG.FIREBASE); }
 const db = firebase.firestore();
 
-// 1. REAL-TIME VALIDATION (Visual Feedback)
-document.getElementById('manual-name').addEventListener('input', function(e) {
-    this.style.borderColor = /^[A-Za-z\s]{3,}$/.test(this.value) ? "#28a745" : "#A01018";
-});
+// Real-time Visual Validation
+function setupValidation() {
+    const n = document.getElementById('manual-name');
+    const i = document.getElementById('manual-id');
+    if(!n || !i) return;
 
-document.getElementById('manual-id').addEventListener('input', function(e) {
-    this.style.borderColor = /^\d{4,10}$/.test(this.value) ? "#28a745" : "#A01018";
-});
+    n.oninput = () => n.style.borderColor = /^[A-Za-z\s]{3,}$/.test(n.value) ? "#28a745" : "#A01018";
+    i.oninput = () => i.style.borderColor = /^\d{4,10}$/.test(i.value) ? "#28a745" : "#A01018";
+}
+setupValidation();
 
 async function handleManualEntry() {
     const name = document.getElementById('manual-name').value.trim();
     const id = document.getElementById('manual-id').value.trim();
 
-    // Re-verify before sending
     if (!/^[A-Za-z\s]{3,}$/.test(name) || !/^\d{4,10}$/.test(id)) {
-        alert("Check the red boxes! Name needs letters, ID needs 4-10 numbers.");
+        alert("Invalid Input: Name (Letters only), ID (4-10 Numbers)");
         return;
     }
 
-    toggleLoader(true, "Connecting to Seamex Servers...");
+    toggleLoader(true, "Checking Poornata Database...");
 
     try {
-        // Set a 5-second timeout so it never "Freezes"
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase Timeout - Check your Internet or Rules")), 5000));
-        
-        await Promise.race([proceedToGame(name, id), timeout]);
-
+        await proceedToGame(name, id);
     } catch (err) {
-        console.error("Gate Error:", err);
-        alert("CONNECTION ERROR: " + err.message);
-        toggleLoader(false); // This UNFREEZES the screen
+        alert("Sync Error: " + err.message);
+        toggleLoader(false);
     }
 }
 
 async function proceedToGame(name, id) {
-    // 2. DATA FLOW TEST
-    // We send simple data first to see if it hits your Dashboard
     const playerRef = db.collection("players").doc(id);
-    
-    await playerRef.set({
-        name: name,
-        lastSeen: Date.now(),
-        status: "Verified",
-        highScore: 0 // Initialize at zero
-    }, { merge: true });
+    const doc = await playerRef.get();
 
-    // 3. UI SUCCESS (No high score displayed yet)
-    document.getElementById('auth-screen').innerHTML = `
+    let highScore = 0;
+    if (doc.exists) {
+        // DUPLICATE ID HANDLED: Use existing score, update name
+        highScore = doc.data().highScore || 0;
+        await playerRef.update({ name: name, lastSeen: Date.now() });
+    } else {
+        // NEW PLAYER: Create fresh record
+        await playerRef.set({
+            name: name,
+            highScore: 0,
+            lastSeen: Date.now(),
+            status: "Verified"
+        });
+    }
+
+    // SUCCESS UI with "Back to Home"
+    document.getElementById('manual-entry-box').style.display = 'none';
+    document.getElementById('loader').style.display = 'none';
+    
+    // Inject the Verification Screen
+    const authScreen = document.getElementById('auth-screen');
+    authScreen.innerHTML = `
         <div class="user-pill">
-            <h1 style="color:#28a745">✔ Verified</h1>
-            <p>Welcome, <b>${name}</b></p>
-            <small>ID: ${id} | Sync: Active</small>
+            <h2 style="color:#28a745; margin:0;">✔ Identity Verified</h2>
+            <p>Welcome back, <b>${name}</b></p>
+            <p style="font-size:13px;">Your Current High Score: <b>${highScore}</b></p>
         </div>
-        <button class="main-btn" onclick="alert('Now we can build the game!')">READY FOR PHASE 2</button>
+        <button class="main-btn" onclick="alert('Starting Game...')">LAUNCH GAME</button>
+        <button class="main-btn" style="background:#666; margin-top:10px;" onclick="location.reload()">BACK TO HOME</button>
     `;
 }
 
 function toggleLoader(show, msg) {
-    document.getElementById('loader').style.display = show ? 'block' : 'none';
-    document.getElementById('loader').innerText = msg;
-    document.getElementById('manual-entry-box').style.display = show ? 'none' : 'block';
+    const l = document.getElementById('loader');
+    const b = document.getElementById('manual-entry-box');
+    if(l) { l.style.display = show ? 'block' : 'none'; l.innerText = msg; }
+    if(b) { b.style.display = show ? 'none' : 'block'; }
 }
