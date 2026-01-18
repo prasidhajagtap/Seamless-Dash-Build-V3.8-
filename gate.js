@@ -1,89 +1,79 @@
-/** * PHASE 1: IDENTITY GATE (With Back Button & Duplicate Handling)
- */
 const CONFIG = {
     MODE: 'TEST', 
     AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", 
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
-        projectId: "seamless-dash",
-        storageBucket: "seamless-dash.appspot.com",
-        appId: "1:777443834151:web:357732a3f019688439167c"
+        projectId: "seamless-dash"
     }
 };
 
 if (!firebase.apps.length) { firebase.initializeApp(CONFIG.FIREBASE); }
 const db = firebase.firestore();
 
-// Real-time Visual Validation
-function setupValidation() {
-    const n = document.getElementById('manual-name');
-    const i = document.getElementById('manual-id');
-    if(!n || !i) return;
+// 1. Setup Input Listeners for color changes
+const nInput = document.getElementById('manual-name');
+const iInput = document.getElementById('manual-id');
 
-    n.oninput = () => n.style.borderColor = /^[A-Za-z\s]{3,}$/.test(n.value) ? "#28a745" : "#A01018";
-    i.oninput = () => i.style.borderColor = /^\d{4,10}$/.test(i.value) ? "#28a745" : "#A01018";
-}
-setupValidation();
+nInput.oninput = () => nInput.style.borderColor = /^[A-Za-z\s]{3,}$/.test(nInput.value) ? "#28a745" : "#A01018";
+iInput.oninput = () => iInput.style.borderColor = /^\d{4,10}$/.test(iInput.value) ? "#28a745" : "#A01018";
 
 async function handleManualEntry() {
-    const name = document.getElementById('manual-name').value.trim();
-    const id = document.getElementById('manual-id').value.trim();
+    const name = nInput.value.trim();
+    const id = iInput.value.trim();
 
     if (!/^[A-Za-z\s]{3,}$/.test(name) || !/^\d{4,10}$/.test(id)) {
-        alert("Invalid Input: Name (Letters only), ID (4-10 Numbers)");
+        alert("Please fix the red fields.");
         return;
     }
 
-    toggleLoader(true, "Checking Poornata Database...");
+    showSection('loader');
 
     try {
-        await proceedToGame(name, id);
+        const playerRef = db.collection("players").doc(id);
+        const doc = await playerRef.get();
+
+        let highScore = 0;
+        if (doc.exists) {
+            // DUPLICATE HANDLING: It exists, so we fetch the score and update the name/time
+            highScore = doc.data().highScore || 0;
+            await playerRef.update({ name: name, lastSeen: Date.now() });
+        } else {
+            // NEW PLAYER: Create record
+            await playerRef.set({ name, highScore: 0, lastSeen: Date.now() });
+        }
+
+        displaySuccess(name, id, highScore);
+
     } catch (err) {
-        alert("Sync Error: " + err.message);
-        toggleLoader(false);
+        alert("Database Error: " + err.message);
+        showSection('manual-entry-box');
     }
 }
 
-async function proceedToGame(name, id) {
-    const playerRef = db.collection("players").doc(id);
-    const doc = await playerRef.get();
-
-    let highScore = 0;
-    if (doc.exists) {
-        // DUPLICATE ID HANDLED: Use existing score, update name
-        highScore = doc.data().highScore || 0;
-        await playerRef.update({ name: name, lastSeen: Date.now() });
-    } else {
-        // NEW PLAYER: Create fresh record
-        await playerRef.set({
-            name: name,
-            highScore: 0,
-            lastSeen: Date.now(),
-            status: "Verified"
-        });
-    }
-
-    // SUCCESS UI with "Back to Home"
-    document.getElementById('manual-entry-box').style.display = 'none';
-    document.getElementById('loader').style.display = 'none';
-    
-    // Inject the Verification Screen
-    const authScreen = document.getElementById('auth-screen');
-    authScreen.innerHTML = `
-        <div class="user-pill">
+function displaySuccess(name, id, score) {
+    showSection('success-box');
+    document.getElementById('success-box').innerHTML = `
+        <div class="user-pill" style="background:#f0f9ff; padding:15px; border-radius:15px; margin-bottom:15px; border:1px solid #bae1ff;">
             <h2 style="color:#28a745; margin:0;">✔ Identity Verified</h2>
-            <p>Welcome back, <b>${name}</b></p>
-            <p style="font-size:13px;">Your Current High Score: <b>${highScore}</b></p>
+            <p>Welcome, <b>${name}</b></p>
+            <p>Your High Score: <b>${score}</b></p>
         </div>
-        <button class="main-btn" onclick="alert('Starting Game...')">LAUNCH GAME</button>
-        <button class="main-btn" style="background:#666; margin-top:10px;" onclick="location.reload()">BACK TO HOME</button>
+        <button class="main-btn" onclick="alert('Starting Game...')">LAUNCH DASH</button>
+        <button class="main-btn" style="background:#666; margin-top:10px;" onclick="resetToHome()">BACK TO HOME</button>
     `;
 }
 
-function toggleLoader(show, msg) {
-    const l = document.getElementById('loader');
-    const b = document.getElementById('manual-entry-box');
-    if(l) { l.style.display = show ? 'block' : 'none'; l.innerText = msg; }
-    if(b) { b.style.display = show ? 'none' : 'block'; }
+function resetToHome() {
+    nInput.value = "";
+    iInput.value = "";
+    nInput.style.borderColor = "#eee";
+    iInput.style.borderColor = "#eee";
+    showSection('manual-entry-box');
+}
+
+function showSection(id) {
+    ['manual-entry-box', 'loader', 'success-box'].forEach(sec => {
+        document.getElementById(sec).style.display = (sec === id) ? 'block' : 'none';
+    });
 }
