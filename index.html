@@ -3,16 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seamless Dash | Phase 1</title>
+    <title>Seamless Dash | Phase 1 Test</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="menu-active">
-
-    <input type="hidden" id="ctl00_ctl49_hdnName" value="Not Found">
-    <input type="hidden" id="ctl00_ctl49_hdnPoornataId" value="Not Found">
 
     <div id="ui-wrapper">
         <div id="auth-screen" class="card">
@@ -26,19 +22,14 @@
                 <button class="main-btn" onclick="handleManualEntry()">ENTER SKY</button>
             </div>
 
-            <div id="auto-login-box" style="display:none;">
-                <div class="user-pill">
-                    <span id="display-name">---</span>
-                    <small id="display-id">---</small>
-                </div>
-                <button class="main-btn" onclick="proceedToGame()">START DASHING</button>
+            <div id="loader" style="display:none; padding: 20px; font-weight: bold; color: #a01018;">
+                Syncing with Seamex...
             </div>
 
-            <div id="loader" class="hidden">Validating Security...</div>
+            <div id="success-box" style="display:none;">
+                </div>
         </div>
     </div>
-
-    <canvas id="gameCanvas" style="display:none;"></canvas>
 
     <script src="gate.js"></script>
 </body>
