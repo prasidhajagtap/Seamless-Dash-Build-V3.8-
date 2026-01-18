@@ -1,6 +1,8 @@
+/** * PHASE 1: FINAL IDENTITY GATE (Admin Compatible)
+ */
 const CONFIG = {
     MODE: 'TEST', 
-    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", 
+    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", // <--- MUST MATCH ADMIN PANEL KEY
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
@@ -11,42 +13,81 @@ const CONFIG = {
 if (!firebase.apps.length) { firebase.initializeApp(CONFIG.FIREBASE); }
 const db = firebase.firestore();
 
-// 1. Setup Input Listeners for color changes
-const nInput = document.getElementById('manual-name');
-const iInput = document.getElementById('manual-id');
+// 1. AES Encryption Logic (Required for Admin Panel to show ID instead of X)
+async function encryptID(rawId) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(CONFIG.AES_KEY);
+    const hash = await crypto.subtle.digest("SHA-256", keyData);
+    const key = await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(rawId));
 
-nInput.oninput = () => nInput.style.borderColor = /^[A-Za-z\s]{3,}$/.test(nInput.value) ? "#28a745" : "#A01018";
-iInput.oninput = () => iInput.style.borderColor = /^\d{4,10}$/.test(iInput.value) ? "#28a745" : "#A01018";
+    return {
+        pid_enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+        pid_iv: btoa(String.fromCharCode(...iv))
+    };
+}
 
 async function handleManualEntry() {
-    const name = nInput.value.trim();
-    const id = iInput.value.trim();
+    const nInput = document.getElementById('manual-name');
+    const iInput = document.getElementById('manual-id');
+    const errName = document.getElementById('err-name');
+    const errId = document.getElementById('err-id');
 
-    if (!/^[A-Za-z\s]{3,}$/.test(name) || !/^\d{4,10}$/.test(id)) {
-        alert("Please fix the red fields.");
-        return;
+    // Reset UI
+    errName.style.display = errId.style.display = "none";
+    nInput.style.borderColor = "#eee";
+    iInput.style.borderColor = "#eee";
+
+    let isValid = true;
+
+    // Name Validation
+    if (!/^[A-Za-z\s]{3,}$/.test(nInput.value)) {
+        errName.innerText = "Please enter letters only (min 3 characters)";
+        errName.style.display = "block";
+        nInput.style.borderColor = "#a01018";
+        isValid = false;
     }
+
+    // ID Validation
+    if (!/^\d{4,10}$/.test(iInput.value)) {
+        errId.innerText = "Please enter numbers only (4-10 digits)";
+        errId.style.display = "block";
+        iInput.style.borderColor = "#a01018";
+        isValid = false;
+    }
+
+    if (!isValid) return;
 
     showSection('loader');
 
     try {
-        const playerRef = db.collection("players").doc(id);
+        // ENCRYPT THE ID (To fix the "X" mark in Admin Panel)
+        const secureData = await encryptID(iInput.value.trim());
+        
+        const playerRef = db.collection("players").doc(iInput.value.trim());
         const doc = await playerRef.get();
 
         let highScore = 0;
+        const payload = {
+            name: nInput.value.trim(),
+            pid_enc: secureData.pid_enc, // The Admin Panel reads this
+            pid_iv: secureData.pid_iv,   // The Admin Panel reads this
+            lastSeen: Date.now()
+        };
+
         if (doc.exists) {
-            // DUPLICATE HANDLING: It exists, so we fetch the score and update the name/time
             highScore = doc.data().highScore || 0;
-            await playerRef.update({ name: name, lastSeen: Date.now() });
+            await playerRef.update(payload);
         } else {
-            // NEW PLAYER: Create record
-            await playerRef.set({ name, highScore: 0, lastSeen: Date.now() });
+            payload.highScore = 0;
+            await playerRef.set(payload);
         }
 
-        displaySuccess(name, id, highScore);
+        displaySuccess(payload.name, iInput.value.trim(), highScore);
 
     } catch (err) {
-        alert("Database Error: " + err.message);
+        alert("Sync Error: " + err.message);
         showSection('manual-entry-box');
     }
 }
@@ -54,21 +95,19 @@ async function handleManualEntry() {
 function displaySuccess(name, id, score) {
     showSection('success-box');
     document.getElementById('success-box').innerHTML = `
-        <div class="user-pill" style="background:#f0f9ff; padding:15px; border-radius:15px; margin-bottom:15px; border:1px solid #bae1ff;">
+        <div class="user-pill">
             <h2 style="color:#28a745; margin:0;">✔ Identity Verified</h2>
-            <p>Welcome, <b>${name}</b></p>
-            <p>Your High Score: <b>${score}</b></p>
+            <p>Welcome back, <b>${name}</b></p>
+            <p>Your Current High Score: <b>${score}</b></p>
         </div>
-        <button class="main-btn" onclick="alert('Starting Game...')">LAUNCH DASH</button>
+        <button class="main-btn" onclick="alert('Proceeding...')">LAUNCH DASH</button>
         <button class="main-btn" style="background:#666; margin-top:10px;" onclick="resetToHome()">BACK TO HOME</button>
     `;
 }
 
 function resetToHome() {
-    nInput.value = "";
-    iInput.value = "";
-    nInput.style.borderColor = "#eee";
-    iInput.style.borderColor = "#eee";
+    document.getElementById('manual-name').value = "";
+    document.getElementById('manual-id').value = "";
     showSection('manual-entry-box');
 }
 
