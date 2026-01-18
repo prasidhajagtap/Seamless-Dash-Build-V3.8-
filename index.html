@@ -16,11 +16,18 @@
             <h1>Seamless Dash</h1>
             
             <div id="manual-entry-box">
-                <p class="oops-notice">Device not recognized. Please identify yourself.</p>
-                <input type="text" id="manual-name" placeholder="Full Name (Letters Only)">
-                <input type="tel" id="manual-id" placeholder="Poornata ID (Numbers Only)">
-                <button class="main-btn" onclick="handleManualEntry()">ENTER SKY</button>
-            </div>
+    <p class="oops-notice">Device not recognized. Please identify yourself.</p>
+    
+    <div class="input-group">
+        <input type="text" id="manual-name" placeholder="Full Name">
+        <div id="err-name" class="error-text"></div> </div>
+
+    <div class="input-group">
+        <input type="tel" id="manual-id" placeholder="Poornata ID">
+        <div id="err-id" class="error-text"></div> </div>
+
+    <button class="main-btn" onclick="handleManualEntry()">ENTER SKY</button>
+</div>
 
             <div id="loader" style="display:none; padding: 20px; font-weight: bold; color: #a01018;">
                 Syncing with Seamex...
