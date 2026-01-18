@@ -2,7 +2,7 @@
  */
 const CONFIG = {
     MODE: 'TEST', 
-    AES_KEY: "YOUR_SECRET_KEY", 
+    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", 
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
