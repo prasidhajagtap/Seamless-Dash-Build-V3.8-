@@ -1,93 +1,125 @@
-/** * PHASE 1: IDENTITY GATE & FIREBASE HANDSHAKE
+/** * PHASE 1: HARDENED IDENTITY GATE
+ * Fixes: Input Validation, UI Freezing, and Firebase Data Flow
  */
 const CONFIG = {
-    MODE: 'TEST', // Change to 'PRODUCTION' for SharePoint Sniffing
-    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", // Ensure this matches your Admin Panel
+    MODE: 'TEST', 
+    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", // MUST BE SAME AS ADMIN PANEL
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         authDomain: "seamless-dash.firebaseapp.com",
-        projectId: "seamless-dash"
+        projectId: "seamless-dash",
+        storageBucket: "seamless-dash.appspot.com",
+        messagingSenderId: "777443834151",
+        appId: "1:777443834151:web:357732a3f019688439167c"
     }
 };
 
-// Initialize Firebase
+// Initialize Firebase with full config to prevent connection drops
 if (!firebase.apps.length) {
     firebase.initializeApp(CONFIG.FIREBASE);
 }
 const db = firebase.firestore();
 
-// 1. AES Encryption (Matches Admin Panel Decryption)
 async function encryptID(rawId) {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(CONFIG.AES_KEY);
-    const hash = await crypto.subtle.digest("SHA-256", keyData);
-    const key = await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(rawId));
+    try {
+        const encoder = new TextEncoder();
+        const keyData = encoder.encode(CONFIG.AES_KEY);
+        const hash = await crypto.subtle.digest("SHA-256", keyData);
+        const key = await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(rawId));
 
-    return {
-        pid_enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-        pid_iv: btoa(String.fromCharCode(...iv))
-    };
+        return {
+            pid_enc: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+            pid_iv: btoa(String.fromCharCode(...iv))
+        };
+    } catch (e) {
+        throw new Error("Encryption Failed: " + e.message);
+    }
 }
 
-// 2. Identity Entry Logic
 async function handleManualEntry() {
-    const nameInput = document.getElementById('manual-name').value.trim();
-    const idInput = document.getElementById('manual-id').value.trim();
+    const nameEl = document.getElementById('manual-name');
+    const idEl = document.getElementById('manual-id');
+    const name = nameEl.value.trim();
+    const id = idEl.value.trim();
 
-    // Strict Validation: Letters only for name, 4-10 digits for ID
-    if (/^[A-Za-z\s]{3,}$/.test(nameInput) && /^\d{4,10}$/.test(idInput)) {
-        toggleLoader(true);
-        await proceedToGame(nameInput, idInput);
-    } else {
-        alert("Check your details: Name must be letters, ID must be 4-10 digits.");
+    // 1. CLEAR PREVIOUS ERRORS
+    nameEl.style.borderColor = "#eee";
+    idEl.style.borderColor = "#eee";
+
+    // 2. STRICT VALIDATION
+    let hasError = false;
+    if (!/^[A-Za-z\s]{3,}$/.test(name)) {
+        nameEl.style.borderColor = "red";
+        hasError = true;
+    }
+    if (!/^\d{4,10}$/.test(id)) {
+        idEl.style.borderColor = "red";
+        hasError = true;
+    }
+
+    if (hasError) {
+        alert("PLEASE CORRECT: \n- Name: Letters only (min 3)\n- ID: Numbers only (4-10 digits)");
+        return;
+    }
+
+    // 3. START FLOW
+    toggleLoader(true, "Securing Identity...");
+    
+    try {
+        await proceedToGame(name, id);
+    } catch (err) {
+        console.error("Critical Error:", err);
+        alert("DATABASE ERROR: " + err.message);
+        toggleLoader(false); // Unfreeze the screen so they can try again
     }
 }
 
 async function proceedToGame(name, id) {
-    try {
-        const secureData = await encryptID(id);
-        
-        // Define Global User Object
-        window.gameUser = {
-            name: name,
-            id: id,
-            secure: secureData,
-            sessionStart: Date.now(),
-            highScore: 0
-        };
+    // Encrypt the ID
+    const secureData = await encryptID(id);
+    
+    // Prepare Data for Firebase
+    const userData = {
+        name: name,
+        pid_enc: secureData.pid_enc,
+        pid_iv: secureData.pid_iv,
+        lastSeen: Date.now(),
+        highScore: 0 // Default for new players
+    };
 
-        // FETCH DATA FROM FIREBASE (High Score / Verification)
-        const userDoc = await db.collection("players").doc(id).get();
-        if (userDoc.exists) {
-            window.gameUser.highScore = userDoc.data().highScore || 0;
-        }
+    // 4. DATA FLOW: Update Firebase
+    // We use the ID as the Document ID to prevent duplicates
+    const playerRef = db.collection("players").doc(id);
+    const doc = await playerRef.get();
 
-        // LOCK IDENTITY & PREPARE TRANSITION
-        console.log("Identity Locked:", window.gameUser.name);
-        
-        // Final UI Cleanup before Phase 2
-        document.getElementById('auth-screen').innerHTML = `
-            <h1>Welcome, ${name}</h1>
-            <p>High Score: ${window.gameUser.highScore}</p>
-            <button class="main-btn" onclick="initPhase2()">LAUNCH DASH</button>
-        `;
-
-    } catch (err) {
-        console.error("Gate Error:", err);
-        alert("Security Handshake Failed. Please refresh.");
-    } finally {
-        toggleLoader(false);
+    if (doc.exists) {
+        // If player exists, just update their "lastSeen"
+        await playerRef.update({ lastSeen: Date.now(), name: name });
+        userData.highScore = doc.data().highScore || 0;
+    } else {
+        // Create new player record
+        await playerRef.set(userData);
     }
+
+    // Store globally for game engine
+    window.gameUser = { ...userData, id };
+
+    // 5. SUCCESS UI
+    document.getElementById('auth-screen').innerHTML = `
+        <div class="user-pill">
+            <h1>Ready, ${name}!</h1>
+            <p>Your Best: ${userData.highScore}</p>
+        </div>
+        <button class="main-btn" onclick="alert('Phase 2 Coming!')">LAUNCH DASH</button>
+    `;
 }
 
-function toggleLoader(show) {
-    document.getElementById('loader').style.display = show ? 'block' : 'none';
-    document.getElementById('manual-entry-box').style.display = show ? 'none' : 'block';
+function toggleLoader(show, message = "") {
+    const loader = document.getElementById('loader');
+    const box = document.getElementById('manual-entry-box');
+    loader.innerText = message;
+    loader.style.display = show ? 'block' : 'none';
+    box.style.display = show ? 'none' : 'block';
 }
-
-// Mobile Screen Lock Logic
-document.addEventListener('touchmove', (e) => {
-    if (window.isGameRunning) e.preventDefault();
-}, { passive: false });
