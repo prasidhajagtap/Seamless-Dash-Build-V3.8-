@@ -5,7 +5,7 @@
  */
 const CONFIG = {
     MODE: 'TEST', 
-    AES_KEY: "PASTE_YOUR_ADMIN_KEY_HERE", 
+    AES_KEY: "SD_PRASIDHA_JAGTAP_V38_MASTER_KEY", 
     FIREBASE: {
         apiKey: "AIzaSyBJcK4zEK2Rb-Er8O7iDNYsGW2HUJANPBc",
         projectId: "seamless-dash"
