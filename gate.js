@@ -116,3 +116,62 @@ function showSection(id) {
         document.getElementById(sec).style.display = (sec === id) ? 'block' : 'none';
     });
 }
+
+// Add this to your existing gate.js
+const ASSETS = {};
+const assetSources = {
+    character: 'assets/character.png',
+    virus: 'assets/virus.png',
+    shield: 'assets/shield.png',
+    logo: 'assets/logo.png'
+};
+
+async function preloadAssets() {
+    const promises = Object.keys(assetSources).map(key => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = assetSources[key];
+            img.onload = () => {
+                ASSETS[key] = img;
+                resolve();
+            };
+            img.onerror = () => reject(`Failed to load: ${key}`);
+        });
+    });
+
+    try {
+        await Promise.all(promises);
+        console.log("All Assets Verified.");
+        return true;
+    } catch (err) {
+        console.error(err);
+        return false;
+    }
+}
+
+// Modify your displaySuccess function to wait for assets
+async function displaySuccess(name, id, score) {
+    showSection('success-box');
+    document.getElementById('success-box').innerHTML = `
+        <div class="user-pill">
+            <h2 style="color:#28a745; margin:0;">✔ Identity Verified</h2>
+            <p>Welcome, <b>${name}</b></p>
+            <p>High Score: <b>${score}</b></p>
+        </div>
+        <div id="asset-loader" style="font-size:12px; color:#666; margin-bottom:10px;">Checking Graphics...</div>
+        <button id="launch-btn" class="main-btn" style="opacity:0.5; pointer-events:none;">PREPARING SKY...</button>
+        <button class="main-btn" style="background:#666; margin-top:10px;" onclick="resetToHome()">BACK TO HOME</button>
+    `;
+
+    const assetsReady = await preloadAssets();
+    if (assetsReady) {
+        const btn = document.getElementById('launch-btn');
+        btn.innerText = "LAUNCH DASH";
+        btn.style.opacity = "1";
+        btn.style.pointer-events = "auto";
+        btn.onclick = () => startTheGameEngine(); // This will be Phase 3
+        document.getElementById('asset-loader').innerText = "Graphics Ready!";
+    } else {
+        document.getElementById('asset-loader').innerHTML = "<b style='color:red;'>Graphic Error: Refresh Page</b>";
+    }
+}
